@@ -1,0 +1,1199 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><rect width=%27100%27 height=%27100%27 rx=%2720%27 fill=%27%232F6FD6%27/><text x=%2750%27 y=%2772%27 font-size=%2770%27 text-anchor=%27middle%27 fill=%27white%27 font-style=%27italic%27 font-family=%27serif%27>x</text></svg>">
+<style>html{color-scheme:light}body{margin:0}img{max-width:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>El Camí de la X</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Gochi+Hand&display=swap">
+<style>
+/* Layout: llibreta quadriculada. Mapa de mons en seqüència → pantalla de joc (canvas 16:9) → fitxes modals de teoria i exercicis. */
+:root{
+  --paper:#F2F6FB; --paper-2:#FFFFFF; --grid:#DCE6F2; --grid-strong:#B7CAE2;
+  --ink:#1B2845; --ink-soft:#56637F; --margin:#E0564B; --marker:#FFCB3D; --on-marker:#1B2845;
+  --hero:#2F6FD6; --ground:#CBDAEE; --ground-line:#9AB3D6; --gate:#E8796F;
+  --leaf:#1F8E59; --error:#D23B31; --leaf-bg:#E3F4EA; --error-bg:#FBE6E4; --shadow:rgba(27,40,69,.18);
+  --f-display:"Gochi Hand","Comic Sans MS",cursive;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-math:"Cambria Math","STIX Two Math","Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#1A2824; --paper-2:#22332E; --grid:#24362F; --grid-strong:#36503F;
+  --ink:#EDF2EA; --ink-soft:#A8B9AF; --margin:#F08A7E; --marker:#F2D060; --on-marker:#1B2845;
+  --hero:#78AEF5; --ground:#2B4139; --ground-line:#4C6D60; --gate:#C9655C;
+  --leaf:#66D39A; --error:#F2766B; --leaf-bg:#1F3D2F; --error-bg:#4A2522; --shadow:rgba(0,0,0,.45);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#1A2824; --paper-2:#22332E; --grid:#24362F; --grid-strong:#36503F;
+  --ink:#EDF2EA; --ink-soft:#A8B9AF; --margin:#F08A7E; --marker:#F2D060; --on-marker:#1B2845;
+  --hero:#78AEF5; --ground:#2B4139; --ground-line:#4C6D60; --gate:#C9655C;
+  --leaf:#66D39A; --error:#F2766B; --leaf-bg:#1F3D2F; --error-bg:#4A2522; --shadow:rgba(0,0,0,.45);
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{min-height:100%}
+body{
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+}
+#app{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;line-height:1.1;text-wrap:balance;margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--hero);outline-offset:2px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--ink);background:var(--ink);color:var(--paper);
+  font-weight:700;padding:9px 16px;border-radius:10px;box-shadow:3px 3px 0 var(--marker);transition:transform .1s,box-shadow .1s}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--marker)}
+.btn.ghost{background:var(--paper-2);color:var(--ink);box-shadow:3px 3px 0 var(--grid-strong)}
+.btn.sm{padding:6px 12px;font-size:14px}
+.btn[disabled]{opacity:.45;cursor:default}
+
+/* math */
+.m{font-family:var(--f-body);white-space:normal}
+.m i{font-family:var(--f-math);font-style:italic;font-size:1.08em;padding:0 .04em}
+.m sup{font-size:.68em;line-height:0}
+.fr{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 .15em;font-size:.92em;line-height:1.15}
+.fr>span:first-child{border-bottom:1.6px solid currentColor;padding:0 .25em}
+.fr>span:last-child{padding:0 .25em}
+
+/* top bar */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-size:26px}
+.brand .chip{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--hero);color:#fff;font-family:var(--f-math);font-style:italic;font-size:26px;border:2px solid var(--ink)}
+.top nav{display:flex;gap:10px;flex-wrap:wrap}
+
+/* map screen */
+.hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px;align-items:center;padding:18px 0 26px;border-left:3px solid var(--margin);padding-left:20px}
+.hero h1{font-size:clamp(46px,8vw,92px)}
+.hero h1 .x{font-family:var(--f-math);font-style:italic;background:linear-gradient(transparent 58%,var(--marker) 58% 90%,transparent 90%);padding:0 .08em}
+.hero p{max-width:56ch;font-size:18px;color:var(--ink-soft);margin:12px 0 0}
+.howto{background:var(--paper-2);border:2px solid var(--ink);border-radius:14px;padding:16px 18px;box-shadow:5px 5px 0 var(--grid-strong)}
+.howto h3{font-size:24px;margin-bottom:8px}
+.howto ul{margin:0;padding-left:0;list-style:none;display:grid;gap:8px}
+.howto li{display:flex;gap:10px;align-items:flex-start}
+.howto .ico{flex:0 0 30px;height:30px;display:grid;place-items:center;border-radius:8px;border:2px solid var(--ink);font-weight:700;font-size:14px;background:var(--paper)}
+.howto .ico.e{background:var(--marker);color:var(--on-marker);font-family:var(--f-math);font-style:italic;font-size:18px}
+.howto .ico.g{background:var(--gate);color:#fff}
+.howto .ico.b{background:var(--paper);color:var(--ink)}
+kbd{font-family:var(--f-body);font-size:13px;border:1.5px solid var(--ink-soft);border-bottom-width:3px;border-radius:5px;padding:0 5px;background:var(--paper)}
+.worlds-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:10px 0 12px}
+.worlds-head h2{font-size:34px}
+.worlds-head p{margin:0;color:var(--ink-soft)}
+.worlds{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;list-style:none;padding:0;margin:0;counter-reset:w}
+.world{position:relative;background:var(--paper-2);border:2px solid var(--ink);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.world .num{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-size:26px;border:2px solid var(--ink);background:var(--paper)}
+.world.done .num{background:var(--leaf);color:var(--paper-2);border-color:var(--leaf)}
+.world h3{font-size:24px}
+.world ul{margin:0;padding-left:18px;font-size:14px;color:var(--ink-soft);flex:1}
+.world .stars{font-size:14px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.world .stars b{color:var(--ink);letter-spacing:2px}
+.world .btn{width:100%}
+.curri{margin-top:22px;font-size:14px;color:var(--ink-soft);max-width:80ch}
+
+/* game screen */
+.hud{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--paper-2);border:2px solid var(--ink);border-bottom:0;border-radius:14px 14px 0 0;padding:8px 12px}
+.hud .wname{font-family:var(--f-display);font-size:22px;flex:1;min-width:0}
+.hud .stat{display:flex;align-items:center;gap:6px;font-weight:700;font-variant-numeric:tabular-nums}
+.hud .hearts{display:flex;gap:3px}
+.hud svg{display:block}
+.stage{position:relative;border:2px solid var(--ink);border-radius:0 0 14px 14px;overflow:hidden;aspect-ratio:16/9;width:100%;max-width:100%;background:var(--paper);box-shadow:6px 6px 0 var(--grid-strong)}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.game-wrap{max-width:min(100%,calc((100svh - 190px) * 16 / 9));margin:0 auto}
+.toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:6px 14px;border-radius:999px;font-size:14px;font-weight:700;pointer-events:none;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+.pad{display:flex;justify-content:space-between;gap:12px;margin-top:14px;user-select:none;-webkit-user-select:none;touch-action:none}
+.pad .grp{display:flex;gap:12px}
+.pad button{width:72px;height:64px;border-radius:16px;border:2px solid var(--ink);background:var(--paper-2);font-size:26px;font-weight:700;box-shadow:3px 3px 0 var(--grid-strong);touch-action:none}
+.pad button.jump{width:110px;background:var(--marker);color:var(--on-marker);font-size:17px}
+.pad button.on{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--grid-strong)}
+@media (hover:hover) and (pointer:fine){.pad{display:none}}
+.keys-help{margin-top:12px;font-size:14px;color:var(--ink-soft);text-align:center}
+@media (hover:none),(pointer:coarse){.keys-help{display:none}}
+
+/* library */
+.lib h1{font-size:46px;margin-bottom:6px}
+.lib>p{color:var(--ink-soft);margin:0 0 18px}
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.lib-card{background:var(--paper-2);border:2px solid var(--ink);border-radius:14px;padding:14px}
+.lib-card h2{font-size:26px;margin-bottom:8px}
+.lib-card .tag{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)}
+.lib-card ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.lib-card li button{width:100%;text-align:left;background:var(--paper);border:1.5px solid var(--grid-strong);border-radius:8px;padding:7px 10px}
+.lib-card li button:hover{border-color:var(--ink)}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(15,22,38,.55);display:grid;place-items:center;
+  padding:max(12px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.sheet{width:min(660px,100%);max-height:100%;overflow:auto;background:var(--paper-2);border:2px solid var(--ink);border-radius:16px;padding:20px 22px;box-shadow:8px 8px 0 var(--shadow);position:relative}
+.sheet .tag{display:inline-block;font-size:12px;text-transform:uppercase;letter-spacing:.09em;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--paper);border:1.5px solid var(--ink-soft);color:var(--ink-soft);margin-bottom:8px}
+.sheet .tag.pista{background:var(--marker);color:var(--on-marker);border-color:var(--on-marker)}
+.sheet .tag.gate{background:var(--gate);color:#fff;border-color:var(--gate)}
+.sheet h2{font-size:34px;margin-bottom:10px}
+.sheet p{margin:0 0 12px}
+.statement{font-size:22px;padding:14px 16px;border-radius:12px;background:var(--paper);border:1.5px dashed var(--grid-strong);margin-bottom:14px;line-height:1.6;overflow-x:auto}
+.statement.text{font-size:18px}
+.ans{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.ans label{font-size:20px;font-weight:700}
+.ans input{font:inherit;font-size:22px;width:9em;max-width:100%;padding:8px 12px;border:2px solid var(--ink);border-radius:10px;background:var(--paper);color:var(--ink)}
+.ans .unit{color:var(--ink-soft)}
+.choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.choices button{font-size:20px;padding:12px;border-radius:12px;border:2px solid var(--ink);background:var(--paper);text-align:center;min-width:0;overflow-x:auto}
+.choices button:hover:not([disabled]){background:var(--marker);color:var(--on-marker)}
+.choices button.ok{background:var(--leaf-bg);border-color:var(--leaf)}
+.choices button.ko{background:var(--error-bg);border-color:var(--error)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.hintbox{background:var(--paper);border-left:4px solid var(--marker);padding:10px 12px;border-radius:0 10px 10px 0;margin:12px 0}
+.fb{border-radius:12px;padding:12px 14px;margin-top:14px;border:2px solid}
+.fb.ok{background:var(--leaf-bg);border-color:var(--leaf)}
+.fb.ko{background:var(--error-bg);border-color:var(--error)}
+.fb h3{font-size:26px;margin-bottom:6px}
+.fb ol,.steps{margin:6px 0 12px;padding-left:24px;display:grid;gap:6px}
+.steps li{animation:rise .35s ease both}
+.steps li::marker,.fb ol li::marker{color:var(--ink-soft);font-weight:700}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.close-x{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:50%;border:2px solid var(--ink);background:var(--paper);font-size:18px;line-height:1}
+.steps table{border-collapse:collapse;font-size:15px;margin:4px 0}
+.steps td,.steps th{border:1.5px solid var(--grid-strong);padding:4px 10px;text-align:center}
+.tblwrap{overflow-x:auto}
+
+/* widgets */
+.wg{background:var(--paper);border:2px solid var(--ink);border-radius:12px;padding:12px 14px;margin:6px 0 14px}
+.wg-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.wg-row label{font-weight:700;min-width:5.5em}
+.wg-row input[type=range]{flex:1;min-width:140px;accent-color:var(--hero)}
+.wg-row output{font-family:var(--f-display);font-size:24px;min-width:2.2em;text-align:right;font-variant-numeric:tabular-nums}
+.calc{display:grid;gap:4px;font-size:18px}
+.calc div{display:flex;gap:10px;flex-wrap:wrap}
+.calc small{color:var(--ink-soft);min-width:9.5em;font-size:13px;text-transform:uppercase;letter-spacing:.05em;padding-top:4px}
+.calc .res{font-weight:700}
+.wg-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.wg svg{max-width:100%;height:auto;display:block;margin:0 auto}
+.mono{font-size:46px;text-align:center;padding:6px 0}
+.mono span{border-radius:8px;padding:0 4px;transition:background .25s,color .25s}
+.mono span.hl{background:var(--marker);color:var(--on-marker)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:20px;min-height:48px}
+.chip-t{border:2px solid var(--ink);border-radius:10px;padding:4px 10px;background:var(--paper-2)}
+.chip-t.k2{background:var(--marker);color:var(--on-marker)}
+.chip-t.k1{background:var(--hero);color:#fff;border-color:var(--hero)}
+.chip-t.k0{background:var(--leaf-bg)}
+.group-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0;font-size:18px}
+.group-row .arrow{color:var(--ink-soft)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.card{border:2px solid var(--ink);border-radius:12px;min-height:84px;padding:10px;background:var(--paper-2);text-align:center;font-size:15px;display:grid;place-items:center}
+.card.flip{background:var(--marker);color:var(--on-marker);font-size:24px}
+.dchips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.dchips button{min-width:44px;padding:6px 10px;border-radius:10px;border:2px solid var(--ink);background:var(--paper-2);font-weight:700}
+.dchips button.on{background:var(--hero);color:#fff;border-color:var(--hero)}
+.mults{display:grid;gap:4px;font-size:15px}
+.mults b.hit{background:var(--marker);color:var(--on-marker);border-radius:4px;padding:0 3px}
+.cap{min-height:3em;margin:8px 0 0!important}
+.tabs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.tabs button{border:2px solid var(--ink);border-radius:999px;padding:4px 12px;background:var(--paper-2)}
+.tabs button.on{background:var(--ink);color:var(--paper)}
+svg .ink{stroke:var(--ink);fill:none}
+svg .inkf{fill:var(--ink)}
+svg .soft{fill:var(--ink-soft)}
+svg .t{fill:var(--ink);font-family:var(--f-body);font-size:15px}
+svg .tm{fill:var(--ink);font-family:var(--f-math);font-style:italic;font-size:17px}
+svg .r1{fill:var(--marker);stroke:var(--ink);stroke-width:2}
+svg .r2{fill:var(--hero);stroke:var(--ink);stroke-width:2;fill-opacity:.35}
+svg .r3{fill:var(--leaf);stroke:var(--ink);stroke-width:2;fill-opacity:.3}
+svg .unit{fill:var(--leaf);stroke:var(--ink);stroke-width:1.5}
+svg .bag{fill:var(--marker);stroke:var(--ink);stroke-width:2}
+svg .bagt{fill:var(--on-marker);font-family:var(--f-math);font-style:italic;font-size:16px}
+
+.result-stars{font-size:44px;letter-spacing:6px;color:var(--marker);-webkit-text-stroke:1.5px var(--ink);text-align:center;margin:4px 0 8px}
+.kv{display:grid;grid-template-columns:auto auto;gap:4px 18px;justify-content:center;margin-bottom:14px;font-variant-numeric:tabular-nums}
+.kv span:nth-child(odd){color:var(--ink-soft)}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr}
+  .worlds{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+}
+@media (max-width:520px){
+  .choices{grid-template-columns:1fr}
+  .sheet{padding:18px 16px}
+  .sheet h2{font-size:28px}
+  .statement{font-size:19px}
+  .hud{gap:10px}
+  .hud .wname{font-size:18px;flex-basis:100%}
+  .pad button{width:64px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<div id="app">
+  <header class="top">
+    <div class="brand"><span class="chip">x</span>El Camí de la X</div>
+    <nav>
+      <button class="btn ghost sm" id="nav-map">Mapa dels mons</button>
+      <button class="btn ghost sm" id="nav-lib">Biblioteca de pistes</button>
+    </nav>
+  </header>
+
+  <!-- MAPA -->
+  <section id="screen-map">
+    <div class="hero">
+      <div>
+        <h1>El Camí de la <span class="x">x</span></h1>
+        <p>Un joc de plataformes per repassar l'àlgebra de 2n d'ESO. Recorre cinc mons, recull les pistes amb la teoria i obre les portes resolent exercicis.</p>
+      </div>
+      <div class="howto">
+        <h3>Com es juga</h3>
+        <ul>
+          <li><span class="ico b">⇄</span><span>Mou-te amb <kbd>←</kbd> <kbd>→</kbd> (o <kbd>A</kbd> <kbd>D</kbd>) i salta amb <kbd>Espai</kbd> o <kbd>↑</kbd>. Al mòbil, fes servir els botons.</span></li>
+          <li><span class="ico" style="background:var(--marker);color:var(--on-marker)">i</span><span><b>Bombetes:</b> pistes amb la teoria del món, amb exemples que pots manipular.</span></li>
+          <li><span class="ico g">=</span><span><b>Portes vermelles:</b> resol l'exercici per obrir-les. Si falles, perds un cor.</span></li>
+          <li><span class="ico e">x</span><span><b>Blocs x:</b> salta per sota per obtenir un exercici extra i guanyar estrelles.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="worlds-head">
+      <h2>Els cinc mons</h2>
+      <p id="total-stars"></p>
+    </div>
+    <ol class="worlds" id="worlds"></ol>
+    <p class="curri">Continguts del sentit algebraic de 2n d'ESO (currículum de la Generalitat de Catalunya): valor numèric d'expressions algebraiques, operacions amb monomis i polinomis, equacions de primer grau sense parèntesis, amb parèntesis i amb denominadors, i resolució de problemes amb equacions.</p>
+  </section>
+
+  <!-- JOC -->
+  <section id="screen-game" hidden>
+    <div class="game-wrap">
+      <div class="hud">
+        <span class="wname" id="hud-world"></span>
+        <span class="stat hearts" id="hud-hearts" aria-label="Cors"></span>
+        <span class="stat" id="hud-stars"></span>
+        <span class="stat" id="hud-coins"></span>
+        <button class="btn sm ghost" id="btn-pause">Pausa</button>
+      </div>
+      <div class="stage">
+        <canvas id="cv" width="960" height="540" aria-label="Pantalla del joc"></canvas>
+        <div class="toast" id="toast" hidden></div>
+      </div>
+      <div class="pad" id="pad">
+        <div class="grp">
+          <button data-k="left" aria-label="Esquerra">◀</button>
+          <button data-k="right" aria-label="Dreta">▶</button>
+        </div>
+        <button data-k="jump" class="jump">Salta</button>
+      </div>
+      <p class="keys-help"><kbd>←</kbd> <kbd>→</kbd> moure't · <kbd>Espai</kbd> saltar · <kbd>Esc</kbd> pausa</p>
+    </div>
+  </section>
+
+  <!-- BIBLIOTECA -->
+  <section id="screen-lib" class="lib" hidden>
+    <h1>Biblioteca de pistes</h1>
+    <p>Tota la teoria del joc, per repassar-la sense jugar. Cada fitxa té exemples pas a pas i petites eines interactives.</p>
+    <div class="lib-grid" id="lib-grid"></div>
+  </section>
+</div>
+
+<div class="modal" id="modal" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+
+<script>
+/* ===================== utilitats ===================== */
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const nz=(a,b)=>{let v;do v=ri(a,b);while(v===0);return v};
+const sgn=()=>Math.random()<.5?-1:1;
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const gcd=(a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b]}return a};
+const lcm=(a,b)=>a/gcd(a,b)*b;
+const par=v=>v<0?`(${v})`:`${v}`;
+const $=id=>document.getElementById(id);
+function fmtNum(v){if(Math.abs(v-Math.round(v))<1e-9)return String(Math.round(v));return String(+v.toFixed(2)).replace('.',',')}
+
+/* mini-sintaxi matemàtica: $...$  ^n  *  -  {num|den} */
+function mathify(m){
+  m=m.replace(/[a-zA-Z]/g,'<i>$&</i>');
+  m=m.replace(/\^(\d+)/g,'<sup>$1</sup>');
+  m=m.replace(/-/g,'−').replace(/\*/g,'·');
+  m=m.replace(/\{([^{}|]*)\|([^{}]*)\}/g,'<span class="fr"><span>$1</span><span>$2</span></span>');
+  return m;
+}
+const T=s=>String(s).replace(/\$([^$]+)\$/g,(_,m)=>'<span class="m">'+mathify(m)+'</span>');
+
+function joinS(parts){
+  if(!parts.length)return '0';
+  return parts.map((p,i)=>i===0?(p.neg?'-':'')+p.s:(p.neg?' - ':' + ')+p.s).join('');
+}
+function coefBody(c,lit){const a=Math.abs(c);return lit?((a===1?'':a)+lit):String(a)}
+function poly(co,v='x'){
+  const parts=[];
+  for(let d=co.length-1;d>=0;d--){const c=co[d];if(!c)continue;
+    const lit=d===0?'':(d===1?v:v+'^'+d);parts.push({neg:c<0,s:coefBody(c,lit)})}
+  return joinS(parts);
+}
+function mono(c,d){const a=[];a[d]=c;for(let i=0;i<d;i++)a[i]=0;return poly(a)}
+function polyParts(co){const parts=[];for(let d=co.length-1;d>=0;d--){const c=co[d];if(!c)continue;parts.push({neg:c<0,s:coefBody(c,d===0?'':(d===1?'x':'x^'+d))})}return parts}
+function polyConcat(A,B){return joinS([...polyParts(A),...polyParts(B)])}
+function lin(p,q){if(p<0&&q>0)return joinS([{neg:false,s:String(q)},{neg:true,s:coefBody(p,'x')}]);return poly([q,p])}
+
+/* ===================== equacions: termes i resolució pas a pas ===================== */
+// {t:'x',c} {t:'k',c} {t:'g',m,p,q} = m(px+q)   {t:'f',s,p,q,d} = s·(px+q)/d
+function tParts(t){
+  switch(t.t){
+    case 'x':return{neg:t.c<0,s:coefBody(t.c,'x')};
+    case 'k':return{neg:t.c<0,s:String(Math.abs(t.c))};
+    case 'g':{const a=Math.abs(t.m);return{neg:t.m<0,s:(a===1?'':a)+'('+lin(t.p,t.q)+')'}}
+    case 'f':{const num=t.q===0?coefBody(t.p,'x'):lin(t.p,t.q);return{neg:t.s<0,s:'{'+num+'|'+t.d+'}'}}
+  }
+}
+const side=ts=>joinS(ts.map(tParts));
+const eqS=(L,R)=>side(L)+' = '+side(R);
+function evT(t,x){switch(t.t){case 'x':return t.c*x;case 'k':return t.c;case 'g':return t.m*(t.p*x+t.q);case 'f':return t.s*(t.p*x+t.q)/t.d}}
+function xC(t){switch(t.t){case 'x':return t.c;case 'k':return 0;case 'g':return t.m*t.p;case 'f':return t.s*t.p/t.d}}
+const evS=(ts,x)=>ts.reduce((a,t)=>a+evT(t,x),0);
+const clean=ts=>ts.filter(t=>!((t.t==='k'||t.t==='x')&&t.c===0));
+
+function solveSteps(L,R){
+  const st=[];const all=[...L,...R];
+  const dens=[...new Set(all.filter(t=>t.t==='f').map(t=>t.d))];
+  if(dens.length){
+    const M=dens.reduce(lcm,1);
+    st.push(dens.length>1?`Calculem el m.c.m. dels denominadors: m.c.m.(${dens.join(', ')}) = ${M}.`:`L'únic denominador és ${M}.`);
+    const mul=t=>{switch(t.t){case 'x':return{t:'x',c:t.c*M};case 'k':return{t:'k',c:t.c*M};case 'g':return{...t,m:t.m*M};
+      case 'f':{const m=t.s*M/t.d;return t.q===0?{t:'x',c:m*t.p}:{t:'g',m,p:t.p,q:t.q}}}};
+    L=L.map(mul);R=R.map(mul);
+    st.push(`Multipliquem tots els termes per ${M} i simplifiquem cada fracció: $${eqS(L,R)}$`);
+  }
+  if([...L,...R].some(t=>t.t==='g')){
+    const ex=ts=>ts.flatMap(t=>t.t==='g'?[{t:'x',c:t.m*t.p},{t:'k',c:t.m*t.q}].filter(u=>u.c!==0):[t]);
+    L=ex(L);R=ex(R);
+    st.push(`Traiem els parèntesis (propietat distributiva, compte amb els signes): $${eqS(L,R)}$`);
+  }
+  const xs=[...L.filter(t=>t.t==='x'),...R.filter(t=>t.t==='x').map(t=>({t:'x',c:-t.c}))];
+  const ks=[...R.filter(t=>t.t==='k'),...L.filter(t=>t.t==='k').map(t=>({t:'k',c:-t.c}))];
+  if(R.some(t=>t.t==='x')||L.some(t=>t.t==='k'))
+    st.push(`Passem les $x$ al primer membre i els nombres al segon (el que suma passa restant, el que resta passa sumant): $${eqS(xs,ks)}$`);
+  const A=xs.reduce((a,t)=>a+t.c,0),B=ks.reduce((a,t)=>a+t.c,0);
+  if(xs.length>1||ks.length>1)st.push(`Reduïm termes semblants: $${eqS([{t:'x',c:A}],[{t:'k',c:B}])}$`);
+  const s=B/A;
+  if(A!==1)st.push(`Aïllem la $x$: el $${A}$ que multiplica passa dividint. $x = {${B}|${A}} = ${fmtNum(s)}$`);
+  return{steps:st,sol:s};
+}
+function checkStep(L,R,s){return `Comprovació: amb $x = ${fmtNum(s)}$ el primer membre val $${fmtNum(evS(L,s))}$ i el segon també val $${fmtNum(evS(R,s))}$. ✓`}
+function eqEx(L,R,s,prompt){
+  L=clean(L);R=clean(R);
+  const{steps}=solveSteps(L,R);steps.push(checkStep(L,R,s));
+  return{kind:'num',prompt:prompt||"Resol l'equació",statement:`$${eqS(L,R)}$`,label:'x =',answer:s,steps,hint:steps[0]};
+}
+function okEq(L,R,s){const A=[...L].reduce((a,t)=>a+xC(t),0)-[...R].reduce((a,t)=>a+xC(t),0);
+  return Math.abs(A)>1e-9&&Math.abs(evS(L,s)-evS(R,s))<1e-9}
+function gen(fn){for(let i=0;i<60;i++){const r=fn();if(r)return r}return fn()||null}
+function pickQ(p,s,d){const c=[];for(let q=-9;q<=9;q++)if(q!==0&&(p*s+q)%d===0)c.push(q);return c.length?pick(c):null}
+
+/* ===================== valor numèric pas a pas ===================== */
+// terms: {c, v:'x'|'y'|null, p}
+function evalLines(terms,vals){
+  const lit=t=>t.v?(t.p>1?t.v+'^'+t.p:t.v):'';
+  const expr=joinS(terms.map(t=>({neg:t.c<0,s:coefBody(t.c,lit(t))})));
+  const sub=joinS(terms.map(t=>{const a=Math.abs(t.c);return{neg:t.c<0,s:t.v?((a===1?'':a+'*')+par(vals[t.v])+(t.p>1?'^'+t.p:'')):String(a)}}));
+  const hasPow=terms.some(t=>t.v&&t.p>1);
+  const pow=joinS(terms.map(t=>{const a=Math.abs(t.c);if(!t.v)return{neg:t.c<0,s:String(a)};
+    const pv=Math.pow(vals[t.v],t.p);return{neg:t.c<0,s:(a===1?par(pv):a+'*'+par(pv))}}));
+  const vs=terms.map(t=>t.c*(t.v?Math.pow(vals[t.v],t.p):1));
+  const prod=joinS(vs.map(v=>({neg:v<0,s:String(Math.abs(v))})));
+  const res=vs.reduce((a,b)=>a+b,0);
+  const lines=[{k:'Expressió',s:expr},{k:'Substituïm',s:sub}];
+  if(hasPow&&pow!==sub)lines.push({k:'Potències',s:pow});
+  if(prod!==(hasPow?pow:sub))lines.push({k:'Multiplicacions',s:prod});
+  lines.push({k:'Resultat',s:String(res),res:true});
+  return{lines,res,expr};
+}
+function valorEx(terms,vals,label){
+  const{lines,res,expr}=evalLines(terms,vals);
+  const names=Object.keys(vals);
+  const cond=names.map(n=>`$${n} = ${vals[n]}$`).join(' i ');
+  const steps=lines.slice(1).map(l=>l.k==='Substituïm'?`Substituïm ${names.map(n=>`$${n}$ per $${par(vals[n])}$`).join(' i ')}, sempre entre parèntesis si és negatiu: $${l.s}$`
+    :l.k==='Potències'?`Primer calculem les potències: $${l.s}$`
+    :l.k==='Multiplicacions'?`Després fem les multiplicacions: $${l.s}$`:`Sumem i restem: el valor numèric és $${l.s}$.`);
+  return{kind:'num',prompt:'Calcula el valor numèric',statement:`$${expr}$ &nbsp;per a&nbsp; ${cond}`,label:label||'Valor =',answer:res,steps,hint:steps[0]};
+}
+
+/* ===================== generadors d'exercicis ===================== */
+const GEN1=[
+  ()=>{const a=ri(2,9)*sgn(),b=nz(-9,9),x=nz(-5,5);return valorEx([{c:a,v:'x',p:1},{c:b,v:null}],{x})},
+  ()=>{const a=ri(1,4)*sgn(),b=ri(1,6)*sgn(),c=ri(-9,9),x=nz(-3,3);return valorEx(clean2([{c:a,v:'x',p:2},{c:b,v:'x',p:1},{c:c,v:null}]),{x})},
+  ()=>{const a=ri(2,6)*sgn(),b=ri(2,6)*sgn(),c=nz(-8,8),x=nz(-4,4),y=nz(-4,4);return valorEx([{c:a,v:'x',p:1},{c:b,v:'y',p:1},{c:c,v:null}],{x,y})},
+  ()=>{const b=ri(2,7),x=-ri(1,4);return valorEx([{c:-1,v:'x',p:2},{c:b,v:'x',p:1}],{x})},
+  ()=>{ // contextos
+    const k=pick([0,1,2,3]);
+    if(k===0){const km=ri(3,18),pb=ri(2,4),f=ri(3,6);const v=pb*km+f;
+      return{kind:'num',prompt:'Valor numèric en context',statement:`Un taxi cobra ${f} € per la baixada de bandera i ${pb} € per quilòmetre. El preu és $P = ${pb}k + ${f}$, on $k$ són els quilòmetres. Quant costa un trajecte de ${km} km?`,text:true,label:'Preu =',unit:'€',answer:v,
+        steps:[`Substituïm $k$ per ${km}: $P = ${pb}*${km} + ${f}$`,`Multipliquem: $P = ${pb*km} + ${f}$`,`El trajecte costa ${v} €.`],hint:`Substitueix $k$ per ${km} a la fórmula.`}}
+    if(k===1){const b=ri(3,15),a=ri(2,12);const v=2*b+2*a;
+      return{kind:'num',prompt:'Valor numèric en context',statement:`El perímetre d'un rectangle de base $b$ i altura $a$ és $P = 2b + 2a$. Calcula'l si $b = ${b}$ cm i $a = ${a}$ cm.`,text:true,label:'P =',unit:'cm',answer:v,
+        steps:[`Substituïm: $P = 2*${b} + 2*${a}$`,`Multipliquem: $P = ${2*b} + ${2*a}$`,`El perímetre és ${v} cm.`],hint:'Canvia cada lletra pel seu valor i fes primer les multiplicacions.'}}
+    if(k===2){const c=5*ri(-4,8);const v=9*c/5+32;
+      return{kind:'num',prompt:'Valor numèric en context',statement:`Per passar de graus Celsius ($C$) a graus Fahrenheit ($F$) es fa servir $F = {9C|5} + 32$. Quants graus Fahrenheit són ${c} °C?`,text:true,label:'F =',unit:'°F',answer:v,
+        steps:[`Substituïm $C$ per $${par(c)}$: $F = {9*${par(c)}|5} + 32$`,`Calculem la fracció: $F = {${9*c}|5} + 32 = ${9*c/5} + 32$`,`Resultat: $F = ${v}$ °F.`],hint:'Substitueix C, fes la multiplicació, divideix entre 5 i suma 32.'}}
+    const bb=2*ri(2,9),h=ri(3,12);const v=bb*h/2;
+    return{kind:'num',prompt:'Valor numèric en context',statement:`L'àrea d'un triangle és $A = {b*h|2}$. Calcula-la si la base fa $b = ${bb}$ cm i l'altura $h = ${h}$ cm.`,text:true,label:'A =',unit:'cm²',answer:v,
+      steps:[`Substituïm: $A = {${bb}*${h}|2}$`,`Multipliquem: $A = {${bb*h}|2}$`,`Dividim: l'àrea és ${v} cm².`],hint:'Multiplica la base per l\'altura i divideix entre 2.'};
+  }
+];
+function clean2(ts){return ts.filter(t=>t.c!==0)}
+
+function mkChoice(base,correct,wrongs,fallback){
+  const set=[correct];
+  for(const w of wrongs){if(!set.includes(w))set.push(w);if(set.length===4)break}
+  let g=0;while(set.length<4&&g++<60){const w=fallback();if(!set.includes(w))set.push(w)}
+  const choices=shuffle(set.slice());
+  return{...base,kind:'choice',choices,correct:choices.indexOf(correct)};
+}
+const rp3=()=>[ri(-9,9),ri(-6,6)||1,ri(1,5)*sgn()];
+const GEN2=[
+  ()=>{const a=ri(2,7),c=pick([-6,-5,-4,-3,-2,2,3,4,5,6].filter(v=>v!==-a)),b=nz(-9,9),d=nz(-9,9);
+    const ts=[{t:'x',c:a},{t:'k',c:b},{t:'x',c:c},{t:'k',c:d}];
+    const corr=poly([b+d,a+c]);
+    return mkChoice({prompt:'Redueix l\'expressió',statement:`$${side(ts)}$`,
+      steps:[`Només podem sumar termes semblants. Agrupem: $(${side([ts[0],ts[2]])}) + (${side([ts[1],ts[3]])})$`,`Sumem els coeficients de les $x$: $${a} + ${par(c)} = ${a+c}$. Sumem els nombres: $${b} + ${par(d)} = ${b+d}$.`,`Resultat: $${corr}$`],
+      hint:'Agrupa per una banda els termes amb $x$ i per l\'altra els nombres.'},
+      corr,[poly([0,a+b+c+d]),poly([b+d,a-c]),poly([b-d,a+c]),poly([b+d,0,a+c])],()=>poly([b+d+nz(-3,3),a+c]))},
+  ()=>{const P=rp3(),Q=rp3();const S=P.map((v,i)=>v+Q[i]);
+    return mkChoice({prompt:'Suma els polinomis',statement:`$(${poly(P)}) + (${poly(Q)})$`,
+      steps:[`Traiem els parèntesis (davant hi ha un +, no canvia res): $${poly(P)} + ${poly(Q)}$`,`Sumem els termes del mateix grau: $x^2$ amb $x^2$, $x$ amb $x$, i nombres amb nombres.`,`Resultat: $${poly(S)}$`],
+      hint:'Suma només els termes que tenen la mateixa part literal.'},
+      poly(S),[poly(P.map((v,i)=>v-Q[i])),poly([S[0],S[1],0,0,S[2]]),poly([S[0],-S[1],S[2]])],()=>poly([S[0]+nz(-3,3),S[1],S[2]]))},
+  ()=>{const P=rp3(),Q=rp3();const D=P.map((v,i)=>v-Q[i]);const negQ=Q.map(v=>-v);
+    const only1=[P[0]+Q[0],P[1]+Q[1],P[2]-Q[2]];
+    return mkChoice({prompt:'Resta els polinomis',statement:`$(${poly(P)}) - (${poly(Q)})$`,
+      steps:[`El signe menys davant del parèntesi canvia el signe de <b>tots</b> els termes: $${polyConcat(P,negQ)}$`,`Agrupem per graus i sumem coeficients.`,`Resultat: $${poly(D)}$`],
+      hint:'Canvia el signe de tots els termes del segon polinomi i després suma.'},
+      poly(D),[poly(only1),poly(P.map((v,i)=>v+Q[i])),poly([D[0],D[1],P[2]+Q[2]])],()=>poly([D[0],D[1]+nz(-3,3),D[2]]))},
+  ()=>{const a=ri(2,6)*sgn(),b=ri(2,6)*sgn(),m=ri(1,4),n=ri(2,4);
+    const corr=mono(a*b,m+n);
+    return mkChoice({prompt:'Multiplica els monomis',statement:`$${mono(a,m)} * ${mono(b,n).startsWith('-')?'('+mono(b,n)+')':mono(b,n)}$`,
+      steps:[`Multipliquem els coeficients: $${a}*${par(b)} = ${a*b}$`,`Multipliquem les potències de la mateixa base sumant els exponents: $${m===1?'x':'x^'+m}*x^${n} = x^${m+n}$`,`Resultat: $${corr}$`],
+      hint:'Coeficient per coeficient, i els exponents de la $x$ se sumen.'},
+      corr,[mono(a*b,m*n),mono(a+b,m+n),mono(-a*b,m+n),mono(a*b,m+n+1)],()=>mono(a*b+nz(-3,3),m+n))},
+  ()=>{const a=ri(2,5)*sgn(),b=ri(2,5),c=nz(-7,7);
+    const corr=poly([0,a*c,a*b]);
+    return mkChoice({prompt:'Aplica la propietat distributiva',statement:`$${mono(a,1)}(${lin(b,c)})$`,
+      steps:[`Multipliquem $${mono(a,1)}$ per cada terme del parèntesi: $${mono(a,1)}*${mono(b,1)} ${c<0?'+':'+'} ${mono(a,1)}*${par(c)}$`,`$${mono(a,1)}*${mono(b,1)} = ${mono(a*b,2)}$ i $${mono(a,1)}*${par(c)} = ${mono(a*c,1)}$`,`Resultat: $${corr}$`],
+      hint:'El monomi de fora multiplica <b>tots</b> els termes del parèntesi.'},
+      corr,[poly([c,0,a*b]),poly([0,-a*c,a*b]),poly([0,a*b,a*c]),poly([0,a*c,a+b])],()=>poly([0,a*c+nz(-2,2),a*b]))},
+  ()=>{let k=ri(2,6),m=ri(1,5),n=ri(1,7)*sgn();while(gcd(m,n)!==1){m=ri(1,5);n=ri(1,7)*sgn()}
+    const ex=poly([0,k*n,k*m]);const corr=`${k}x(${lin(m,n)})`;
+    return mkChoice({prompt:'Extreu el màxim factor comú',statement:`$${ex}$`,
+      steps:[`Els coeficients ${k*m} i ${Math.abs(k*n)} tenen de divisor comú màxim ${k}, i els dos termes tenen almenys una $x$.`,`Factor comú: $${k}x$. Dividim cada terme: $${mono(k*m,2)} : ${k}x = ${mono(m,1)}$ i $${mono(k*n,1)} : ${k}x = ${n}$`,`Resultat: $${corr}$`],
+      hint:'Busca el m.c.d. dels coeficients i la $x$ amb l\'exponent més petit.'},
+      corr,[`${k}x(${lin(k*m,n)})`,`${k}(${lin(m,n)})`,`${k}x(${lin(m,-n)})`,`${k}x^2(${m} + ${n})`.replace('+ -','- ')],()=>`${k}x(${lin(m,n+nz(-2,2)||1)})`)},
+  ()=>{const a=ri(1,9),ty=pick([0,1,2]);
+    if(ty===0){const corr=poly([a*a,2*a,1]);
+      return mkChoice({prompt:'Desenvolupa la identitat notable',statement:`$(x + ${a})^2$`,
+        steps:['Quadrat d\'una suma: $(a + b)^2 = a^2 + 2ab + b^2$',`Aquí: $x^2 + 2*x*${a} + ${a}^2$`,`Resultat: $${corr}$`],hint:'El quadrat d\'una suma <b>no</b> és la suma dels quadrats: falta el doble producte.'},
+        corr,[poly([a*a,0,1]),poly([a*a,a,1]),poly([2*a,2*a,1])],()=>poly([a*a,2*a+nz(-2,2),1]))}
+    if(ty===1){const corr=poly([a*a,-2*a,1]);
+      return mkChoice({prompt:'Desenvolupa la identitat notable',statement:`$(x - ${a})^2$`,
+        steps:['Quadrat d\'una diferència: $(a - b)^2 = a^2 - 2ab + b^2$',`Aquí: $x^2 - 2*x*${a} + ${a}^2$`,`Resultat: $${corr}$`],hint:'Recorda: el doble producte porta signe menys, però el darrer terme és positiu.'},
+        corr,[poly([-a*a,0,1]),poly([-a*a,-2*a,1]),poly([a*a,2*a,1])],()=>poly([a*a,-2*a+nz(-2,2),1]))}
+    const corr=poly([-a*a,0,1]);
+    return mkChoice({prompt:'Desenvolupa la identitat notable',statement:`$(x + ${a})(x - ${a})$`,
+      steps:['Suma per diferència: $(a + b)(a - b) = a^2 - b^2$',`Aquí: $x^2 - ${a}^2$`,`Resultat: $${corr}$`],hint:'Suma per diferència és igual a diferència de quadrats.'},
+      corr,[poly([a*a,0,1]),poly([-a*a,-2*a,1]),poly([a*a,-2*a,1])],()=>poly([-a*a+nz(-3,3),0,1]))}
+];
+
+const X=c=>({t:'x',c}),K=c=>({t:'k',c}),Gp=(m,p,q)=>({t:'g',m,p,q}),F=(s,p,q,d)=>({t:'f',s,p,q,d});
+const GEN3=[
+  ()=>{const a=ri(2,9)*sgn(),s=nz(-9,9),b=nz(-12,12);return eqEx([X(a),K(b)],[K(a*s+b)],s)},
+  ()=>gen(()=>{const a=ri(2,9),c=ri(1,8)*sgn(),s=nz(-8,8),b=nz(-12,12);if(a===c)return null;const d=a*s+b-c*s;return eqEx([X(a),K(b)],[X(c),K(d)],s)}),
+  ()=>{const a=ri(2,7)*sgn(),b=nz(-8,8),s=nz(-8,8);return eqEx([Gp(a,1,b)],[K(a*(s+b))],s)},
+  ()=>gen(()=>{const a=ri(2,6),c=ri(1,5),b=nz(-6,6),d=nz(-6,6),s=nz(-6,6);if(a===c)return null;return eqEx([Gp(a,1,b),Gp(-c,1,d)],[K(a*(s+b)-c*(s+d))],s)}),
+  ()=>gen(()=>{const a=ri(2,6),b=ri(1,6),c=ri(1,8)*sgn(),k=nz(-9,9),s=nz(-6,6);if(a===c)return null;const d=a*(s-b)+k-c*s;return eqEx([Gp(a,1,-b),K(k)],[X(c),K(d)],s)}),
+  ()=>gen(()=>{const a=ri(2,8)*sgn(),c=ri(2,5),d=nz(-6,6),s=nz(-6,6);if(a===c)return null;const b=c*(s+d)-a*s;return eqEx([X(a),K(b)],[Gp(c,1,d)],s)})
+];
+const GEN4=[
+  ()=>{const a=pick([2,3,4,5,6]),s=a*nz(-4,4),b=nz(-9,9);return eqEx([F(1,1,0,a),K(b)],[K(s/a+b)],s)},
+  ()=>gen(()=>{const a=pick([2,3,4,5,6]),b=pick([2,3,4,5,6]);if(a===b)return null;const sg=sgn(),M=lcm(a,b);if(M>30)return null;const s=M*nz(-3,3);
+    const L=[F(1,1,0,a),F(sg,1,0,b)];return eqEx(L,[K(evS(L,s))],s)}),
+  ()=>gen(()=>{const d1=pick([2,3,4,5]),d2=pick([2,3,4,6]);if(d1===d2)return null;const s=nz(-8,8);const q1=pickQ(1,s,d1),q2=pickQ(1,s,d2);if(q1===null||q2===null)return null;
+    const L=[F(1,1,q1,d1)],R0=[F(1,1,q2,d2)];const k=evS(L,s)-evS(R0,s);return eqEx(L,[...R0,K(k)],s)}),
+  ()=>gen(()=>{const d1=pick([2,3,4,6]),d2=pick([2,3,4,6]),p1=ri(1,3);if(d1===d2)return null;const s=nz(-8,8);const q1=pickQ(p1,s,d1),q2=pickQ(1,s,d2);if(q1===null||q2===null)return null;
+    const L=[F(1,p1,q1,d1),F(-1,1,q2,d2)];if(!okEq(L,[K(evS(L,s))],s))return null;return eqEx(L,[K(evS(L,s))],s)}),
+  ()=>gen(()=>{const d=pick([2,3,4,5]),a=nz(-6,6),s=d*nz(-4,4),b=nz(-9,9);const L=[F(1,1,0,d),K(a)],R0=[X(1)];const k=evS(L,s)-evS(R0,s);const R=[...R0,K(k)];if(!okEq(L,R,s))return null;return eqEx(L,R,s)}),
+  ()=>gen(()=>{const d=pick([2,3,4,5]),m=ri(2,3)*sgn(),s=nz(-6,6),q2=nz(-5,5);const q=pickQ(1,s,d);if(q===null)return null;const L=[F(1,1,q,d),Gp(m,1,q2)];const R=[K(evS(L,s))];if(!okEq(L,R,s))return null;return eqEx(L,R,s)})
+];
+
+function prob(text,setup,L,R,ans,answerText,label,unit){
+  const{steps}=solveSteps(L,R);
+  return{kind:'num',prompt:'Problema',statement:text,text:true,label,unit,answer:ans,
+    steps:[setup,`Plantegem l'equació: $${eqS(L,R)}$`,...steps,answerText],hint:`${setup} L'equació és: $${eqS(L,R)}$`};
+}
+const GEN5=[
+  ()=>{const x=ri(5,40),N=3*x+3;return prob(`La suma de tres nombres enters consecutius és ${N}. Quin és el més petit?`,
+    'Anomenem $x$ el nombre més petit. Els altres dos són $x + 1$ i $x + 2$.',[X(1),Gp(1,1,1),Gp(1,1,2)],[K(N)],x,`Comprovem: ${x} + ${x+1} + ${x+2} = ${N} ✓. El més petit és el ${x}.`,'El més petit:')},
+  ()=>{const g=ri(3,14),N=4*g;return prob(`En Pau té el triple d'edat que la seva germana Laia. Entre tots dos sumen ${N} anys. Quants anys té la Laia?`,
+    'Edat de la Laia: $x$. Edat d\'en Pau: $3x$.',[X(1),X(3)],[K(N)],g,`La Laia té ${g} anys i en Pau ${3*g}. Sumen ${N} ✓.`,'Laia:','anys')},
+  ()=>{const w=ri(3,15),k=ri(2,9),P=4*w+2*k;return prob(`El llarg d'un rectangle fa ${k} cm més que l'ample. El perímetre és de ${P} cm. Quant fa l'ample?`,
+    `Ample: $x$ cm. Llarg: $x + ${k}$ cm. El perímetre és 2·ample + 2·llarg.`,[X(2),Gp(2,1,k)],[K(P)],w,`L'ample fa ${w} cm i el llarg ${w+k} cm. Perímetre: 2·${w} + 2·${w+k} = ${P} ✓`,'Ample:','cm')},
+  ()=>{const C=ri(12,30),x=ri(3,C-3),P=4*x+2*(C-x);return prob(`En una granja hi ha gallines i conills. En total es compten ${C} caps i ${P} potes. Quants conills hi ha?`,
+    `Conills: $x$ (4 potes cadascun). Gallines: $${C} - x$ (2 potes cadascuna).`,[X(4),Gp(2,-1,C)],[K(P)],x,`Hi ha ${x} conills i ${C-x} gallines: 4·${x} + 2·${C-x} = ${P} potes ✓`,'Conills:')},
+  ()=>{const t=ri(2,12),x=12*t,N=5*t;return prob(`La Marta es gasta la tercera part dels seus diners en un llibre i la quarta part en una entrada de cinema. Encara li queden ${N} €. Quants diners tenia al principi?`,
+    'Diners inicials: $x$ €. Llibre: ${x|3}$ €. Cinema: ${x|4}$ €.',[X(1),F(-1,1,0,3),F(-1,1,0,4)],[K(N)],x,`Tenia ${x} €: llibre ${x/3} €, cinema ${x/4} €, i li queden ${x} − ${x/3} − ${x/4} = ${N} € ✓`,'Diners:','€')},
+  ()=>{const x=ri(8,16),k=ri(Math.max(2,18-x),12),M=2*x+k;return prob(`Una mare té ${M} anys. D'aquí a ${k} anys tindrà el doble de l'edat que tindrà el seu fill. Quants anys té ara el fill?`,
+    `Edat actual del fill: $x$. D'aquí a ${k} anys, el fill en tindrà $x + ${k}$ i la mare $${M} + ${k}$.`,[Gp(2,1,k)],[K(M),K(k)],x,`El fill té ${x} anys. D'aquí a ${k} anys: fill ${x+k}, mare ${M+k} = 2·${x+k} ✓`,'Fill:','anys')},
+  ()=>{const x=ri(10,60),d=ri(5,25),N=2*x+d;return prob(`Repartim ${N} € entre dues germanes de manera que una rep ${d} € més que l'altra. Quants euros rep la que en rep menys?`,
+    `La que en rep menys: $x$ €. L'altra: $x + ${d}$ €.`,[X(1),Gp(1,1,d)],[K(N)],x,`Una rep ${x} € i l'altra ${x+d} €. Total: ${N} € ✓`,'Rep:','€')},
+  ()=>{const p=ri(2,6),n=ri(3,8),b=ri(1,5),N=n*p+b;return prob(`Compres ${n} llibretes iguals i un bolígraf de ${b} €. Pagues ${N} € en total. Quant costa cada llibreta?`,
+    `Preu d'una llibreta: $x$ €. Les ${n} llibretes costen $${n}x$.`,[X(n),K(b)],[K(N)],p,`Cada llibreta costa ${p} €: ${n}·${p} + ${b} = ${N} ✓`,'Preu:','€')},
+  ()=>{const x=2*ri(3,30),N=x+x/2;return prob(`Si a un nombre li sumes la seva meitat, obtens ${N}. Quin és el nombre?`,
+    'El nombre: $x$. La seva meitat: ${x|2}$.',[X(1),F(1,1,0,2)],[K(N)],x,`El nombre és ${x}: ${x} + ${x/2} = ${N} ✓`,'Nombre:')},
+  ()=>{const k=pick([20,40,60]),x=(180-k)/4;return prob(`En un triangle, un angle fa el doble que un altre, i el tercer angle fa ${k}° més que el més petit. Quant fa l'angle més petit?`,
+    `Angle petit: $x$. Els altres: $2x$ i $x + ${k}$. Els tres angles d'un triangle sumen 180°.`,[X(1),X(2),Gp(1,1,k)],[K(180)],x,`Els angles fan ${x}°, ${2*x}° i ${x+k}°, que sumen 180° ✓`,'Angle:','°')},
+  ()=>{const a=ri(2,4),x=ri(3,20),c=ri(2,9),b=a*x-x-c;if(b<=0)return GEN5[0]();return prob(`Si al ${['','','doble','triple','quàdruple'][a]} d'un nombre li restes ${b}, obtens el mateix que si al nombre li sumes ${c}. Quin és el nombre?`,
+    `El nombre: $x$. ${['','','El doble','El triple','El quàdruple'][a]} menys ${b}: $${a}x - ${b}$. El nombre més ${c}: $x + ${c}$.`,[X(a),K(-b)],[X(1),K(c)],x,`El nombre és ${x}: ${a}·${x} − ${b} = ${a*x-b} i ${x} + ${c} = ${x+c} ✓`,'Nombre:')}
+];
+
+/* ===================== teoria (pistes) ===================== */
+const THEORY=[
+ [ {title:'Què és el valor numèric?',widget:'valor',
+    body:'Una <b>expressió algebraica</b> combina nombres i lletres amb operacions. Les lletres representen nombres que no coneixem o que poden canviar. El <b>valor numèric</b> és el resultat que obtens quan substitueixes cada lletra per un nombre concret i fas les operacions. Mou el control i mira com canvia el càlcul.',
+    steps:['Expressió: $2x^2 - 3x + 1$, amb $x = -2$.','Substituïm la $x$ per $(-2)$, sempre entre parèntesis: $2*(-2)^2 - 3*(-2) + 1$','Primer les potències: $2*4 - 3*(-2) + 1$','Després les multiplicacions: $8 + 6 + 1$','Finalment sumes i restes: el valor numèric és $15$.']},
+   {title:'Prioritat i signes',widget:'signs',
+    body:'L\'ordre de les operacions no canvia mai: primer els <b>parèntesis</b>, després les <b>potències</b>, després <b>multiplicacions i divisions</b> i, al final, <b>sumes i restes</b>. Els nombres negatius són on es cometen més errors.',
+    steps:['Agafem $x = -3$.','$x^2 = (-3)^2 = (-3)*(-3) = 9$','$-x^2 = -(-3)^2 = -9$: primer es fa la potència i després s\'aplica el signe menys del davant.','$(-x)^2 = (3)^2 = 9$','Consell: escriu sempre el nombre entre parèntesis quan el substitueixis.']},
+   {title:'Fórmules amb diverses lletres',widget:'rect',
+    body:'Moltes fórmules de geometria i de la vida diària són expressions algebraiques amb diverses lletres. En un rectangle de base $b$ i altura $a$: el perímetre és $P = 2b + 2a$ i l\'àrea és $A = b*a$.',
+    steps:['Rectangle de base $b = 5$ cm i altura $a = 3$ cm.','Perímetre: $P = 2*5 + 2*3 = 10 + 6 = 16$ cm.','Àrea: $A = 5*3 = 15$ cm².']}
+ ],
+ [ {title:'Monomis',widget:'mono',
+    body:'Un <b>monomi</b> és el producte d\'un nombre, el <b>coeficient</b>, per una o més lletres amb exponent natural, la <b>part literal</b>. El <b>grau</b> és la suma dels exponents de les lletres. Un <b>polinomi</b> és una suma de monomis.',
+    steps:['Al monomi $-5x^3y^2$, el coeficient és $-5$.','La part literal és $x^3y^2$.','El grau és la suma dels exponents: $3 + 2 = 5$.','$4x^2y$ i $-7x^2y$ són <b>semblants</b>: tenen la mateixa part literal.','$4x^2y$ i $4xy^2$ <b>no</b> són semblants: els exponents no coincideixen.']},
+   {title:'Sumar i restar',widget:'chips',
+    body:'Només es poden sumar o restar <b>monomis semblants</b>: se sumen els coeficients i la part literal es manté igual. Els termes que no són semblants es deixen indicats.',
+    steps:['$3x + 2 + 5x - 7$','Agrupem els semblants: $(3x + 5x) + (2 - 7)$','Sumem els coeficients: $8x - 5$','Per restar un polinomi, canviem el signe de <b>tots</b> els seus termes: $(4x^2 - 3x) - (x^2 - 5x) = 4x^2 - 3x - x^2 + 5x$','Resultat: $3x^2 + 2x$']},
+   {title:'Multiplicar',widget:'area',
+    body:'Per multiplicar monomis, multipliquem els coeficients i <b>sumem els exponents</b> de la mateixa lletra. Per multiplicar un monomi per un polinomi apliquem la <b>propietat distributiva</b>: el de fora multiplica cada terme de dins. El dibuix ho mostra com l\'àrea d\'un rectangle.',
+    steps:['$3x^2 * 4x^3 = 12x^5$: multipliquem $3*4 = 12$ i sumem exponents $2 + 3 = 5$.','Monomi per polinomi: $2x(3x + 5) = 2x*3x + 2x*5$','$= 6x^2 + 10x$','Polinomi per polinomi: cada terme del primer multiplica cada terme del segon. $(x + 2)(x + 3) = x^2 + 3x + 2x + 6 = x^2 + 5x + 6$']},
+   {title:'Factor comú i identitats notables',widget:'square',
+    body:'Treure <b>factor comú</b> és fer la propietat distributiva al revés. Les <b>identitats notables</b> són productes tan habituals que convé saber-los de memòria. Prova amb nombres que $(a + b)^2$ no és $a^2 + b^2$.',
+    steps:['Factor comú: a $6x^2 + 9x$ els dos termes tenen el factor $3$ i una $x$.','$6x^2 + 9x = 3x*2x + 3x*3 = 3x(2x + 3)$','Quadrat d\'una suma: $(a + b)^2 = a^2 + 2ab + b^2$','Quadrat d\'una diferència: $(a - b)^2 = a^2 - 2ab + b^2$','Suma per diferència: $(a + b)(a - b) = a^2 - b^2$','Exemple: $(x + 3)^2 = x^2 + 6x + 9$, i no pas $x^2 + 9$.']}
+ ],
+ [ {title:'Una equació és una balança',widget:'balance',
+    body:'Una <b>equació</b> és una igualtat amb una incògnita. <b>Resoldre-la</b> és trobar el valor que fa certa la igualtat. Imagina-la com una balança en equilibri: si fas una operació en un plat, l\'has de fer també a l\'altre.',
+    steps:['$2x + 3 = 11$','Restem 3 als dos membres: $2x + 3 - 3 = 11 - 3$, és a dir, $2x = 8$','Dividim els dos membres entre 2: $x = 4$','Comprovem: $2*4 + 3 = 11$ ✓']},
+   {title:'Transposició de termes',widget:null,
+    body:'Per anar més de pressa, passem termes d\'un membre a l\'altre: el que <b>suma</b> passa <b>restant</b>, el que <b>resta</b> passa <b>sumant</b>, el que <b>multiplica</b> passa <b>dividint</b> i el que <b>divideix</b> passa <b>multiplicant</b>. És la balança, però escrita més curta.',
+    steps:['$5x - 4 = 2x + 11$','Les $x$ a l\'esquerra i els nombres a la dreta: $5x - 2x = 11 + 4$','Reduïm: $3x = 15$','El 3 multiplica i passa dividint: $x = {15|3} = 5$','Comprovem: $5*5 - 4 = 21$ i $2*5 + 11 = 21$ ✓']},
+   {title:'Equacions amb parèntesis',widget:null,
+    body:'Primer traiem els parèntesis amb la propietat distributiva. Compte amb el <b>signe menys davant d\'un parèntesi</b>: canvia el signe de tots els termes de dins. Després resolem com sempre.',
+    steps:['$3(x - 2) - 2(x + 1) = 4$','Traiem parèntesis: $3x - 6 - 2x - 2 = 4$ (el $-2$ multiplica el $+1$ i dona $-2$)','Transposem: $3x - 2x = 4 + 6 + 2$','Reduïm: $x = 12$','Comprovem: $3*10 - 2*13 = 30 - 26 = 4$ ✓']}
+ ],
+ [ {title:'Treure denominadors',widget:'lcm',
+    body:'Si a l\'equació hi ha fraccions, multipliquem <b>tots</b> els termes dels dos membres pel <b>m.c.m. dels denominadors</b>. Obtenim una equació equivalent sense fraccions. Tria denominadors a l\'eina per veure com es calcula el m.c.m.',
+    steps:['${x|2} + {x|3} = 10$','m.c.m.(2, 3) = 6','Multipliquem cada terme per 6: ${6x|2} + {6x|3} = 60$','Simplifiquem: $3x + 2x = 60$','$5x = 60$, així que $x = 12$']},
+   {title:'El signe menys davant d\'una fracció',widget:null,
+    body:'Quan una fracció porta un signe menys al davant i el numerador té més d\'un terme, en treure el denominador <b>posa el numerador entre parèntesis</b>. Així el menys afecta tots els termes.',
+    steps:['${x + 1|2} - {x - 3|4} = 3$','m.c.m.(2, 4) = 4','Multipliquem per 4: $2(x + 1) - (x - 3) = 12$','Traiem parèntesis: $2x + 2 - x + 3 = 12$ (el $-3$ es converteix en $+3$)','$x + 5 = 12$, així que $x = 7$']},
+   {title:'L\'ordre per resoldre qualsevol equació',widget:null,
+    body:'Quan una equació ho té tot (parèntesis, fraccions, $x$ als dos costats), segueix sempre aquest ordre:',
+    steps:['<b>1.</b> Treu denominadors multiplicant pel m.c.m.','<b>2.</b> Treu parèntesis amb la propietat distributiva.','<b>3.</b> Transposa: les $x$ a un membre i els nombres a l\'altre.','<b>4.</b> Redueix termes semblants.','<b>5.</b> Aïlla la $x$.','<b>6.</b> Comprova la solució substituint-la a l\'equació original.']}
+ ],
+ [ {title:'Els cinc passos',widget:null,
+    body:'<b>1.</b> Llegeix l\'enunciat i entén què et pregunten. <b>2.</b> Anomena la incògnita: escriu què és la $x$. <b>3.</b> Planteja l\'equació traduint l\'enunciat. <b>4.</b> Resol l\'equació. <b>5.</b> Comprova la solució amb l\'enunciat i respon amb una frase i amb unitats.',
+    steps:['Problema: la suma de dos nombres consecutius és 31. Quins són?','Incògnita: $x$ és el nombre petit, i el següent és $x + 1$.','Equació: $x + (x + 1) = 31$','Resolem: $2x + 1 = 31$, $2x = 30$, $x = 15$','Comprovem: 15 + 16 = 31 ✓. Els nombres són 15 i 16.']},
+   {title:'Del català a l\'àlgebra',widget:'cards',
+    body:'Per plantejar l\'equació has de traduir frases al llenguatge algebraic. Toca cada targeta per veure\'n la traducció.',steps:[]},
+   {title:'Problemes d\'edats',widget:null,
+    body:'En els problemes d\'edats ajuda molt fer una <b>taula</b> amb l\'edat d\'ara i la d\'abans o la de després. Recorda que tothom fa els mateixos anys alhora.',
+    steps:['La Rosa té 30 anys i la seva filla 4. D\'aquí a quants anys la Rosa tindrà el triple de l\'edat de la filla?',
+      '<div class="tblwrap"><table><tr><th></th><th>Ara</th><th>D\'aquí a $x$ anys</th></tr><tr><td>Rosa</td><td>30</td><td>$30 + x$</td></tr><tr><td>Filla</td><td>4</td><td>$4 + x$</td></tr></table></div>',
+      'Equació: $30 + x = 3(4 + x)$','Resolem: $30 + x = 12 + 3x$, $30 - 12 = 3x - x$, $18 = 2x$, $x = 9$','D\'aquí a 9 anys: la Rosa en tindrà 39 i la filla 13, i $39 = 3*13$ ✓']}
+ ]
+];
+
+/* ===================== mons i nivells ===================== */
+const TS=40,ROWS=13,VW=960,VH=540;
+function mk(W,f){const g=Array.from({length:ROWS},()=>Array(W).fill(' '));
+  const A={ground(a,b){for(let x=a;x<=b;x++)for(let y=11;y<ROWS;y++)g[y][x]='#'},
+    gap(a,b){for(let x=a;x<=b;x++)for(let y=11;y<ROWS;y++)g[y][x]=' '},
+    plat(x,y,n,ch='B'){for(let i=0;i<n;i++)g[y][x+i]=ch},
+    put(x,y,ch){g[y][x]=ch},
+    gate(x){for(let y=0;y<=10;y++)g[y][x]='G'},
+    coins(x,y,n){for(let i=0;i<n;i++)g[y][x+i]='o'},
+    col(x,y0,y1,ch='B'){for(let y=y0;y<=y1;y++)g[y][x]=ch}};
+  A.ground(0,W-1);f(A);return g}
+
+const WORLDS=[
+ {name:'Valor numèric',topics:['Substituir lletres per nombres','Prioritat de les operacions','Fórmules'],gens:GEN1,
+  build:()=>mk(100,A=>{A.put(2,10,'P');A.put(6,10,'?');A.coins(9,8,3);A.put(13,7,'E');A.plat(16,8,3);A.gap(20,22);A.coins(20,9,3);A.put(26,10,'?');A.put(30,10,'m');A.gate(34);
+    A.plat(38,8,4);A.coins(38,7,4);A.put(44,7,'E');A.gap(48,50);A.put(53,10,'K');A.put(56,10,'?');A.plat(59,9,2);A.plat(62,7,3);A.put(63,4,'E');A.plat(66,9,2);A.gate(71);
+    A.put(75,10,'m');A.put(78,10,'^');A.put(82,10,'m');A.gate(87);A.coins(89,9,3);A.put(94,10,'F')})},
+ {name:'Operacions algebraiques',topics:['Monomis i polinomis','Sumar, restar i multiplicar','Factor comú i identitats notables'],gens:GEN2,
+  build:()=>mk(110,A=>{A.put(2,10,'P');A.put(5,10,'?');A.put(10,7,'E');A.coins(13,8,3);A.gap(17,19);A.plat(17,8,3);A.put(23,10,'?');A.put(27,10,'m');A.gate(31);
+    A.col(35,10,10);A.col(36,9,10);A.col(37,8,10);A.put(36,5,'E');A.gap(38,40);A.coins(38,6,3);A.put(44,10,'K');A.put(47,10,'?');A.put(51,10,'m');A.put(55,10,'m');A.gate(59);
+    A.plat(62,9,3);A.plat(66,7,3);A.plat(70,9,3);A.gap(63,72);A.put(67,3,'E');A.coins(66,6,3);A.put(77,10,'?');A.put(81,10,'^');A.put(82,10,'^');A.gate(87);
+    A.put(91,10,'m');A.coins(95,9,4);A.put(104,10,'F')})},
+ {name:'Equacions',topics:['Equacions sense parèntesis','Transposició de termes','Equacions amb parèntesis'],gens:GEN3,
+  build:()=>mk(105,A=>{A.put(2,10,'P');A.put(5,10,'?');A.put(9,7,'E');A.plat(12,8,4);A.coins(12,7,4);A.gap(17,19);A.put(22,10,'m');A.put(25,10,'?');A.gate(29);
+    A.plat(33,9,2);A.plat(36,7,2);A.plat(39,5,2);A.put(40,1,'E');A.gap(42,44);A.put(47,10,'K');A.put(50,10,'?');A.put(54,10,'m');A.put(58,10,'m');A.gate(62);
+    A.col(66,9,10);A.col(67,9,10);A.put(68,10,'^');A.put(69,10,'^');A.col(70,9,10);A.put(74,7,'E');A.gap(78,80);A.gate(85);A.put(89,10,'m');A.coins(92,9,4);A.put(99,10,'F')})},
+ {name:'Equacions amb denominadors',topics:['m.c.m. dels denominadors','El signe menys davant d\'una fracció','Ordre de resolució'],gens:GEN4,
+  build:()=>mk(105,A=>{A.put(2,10,'P');A.put(6,10,'?');A.plat(9,8,3);A.put(14,7,'E');A.gap(18,20);A.plat(19,9,1);A.put(24,10,'?');A.put(28,10,'m');A.gate(32);
+    A.plat(36,8,2);A.plat(40,6,2);A.put(41,2,'E');A.plat(44,8,2);A.gap(37,45);A.coins(40,5,2);A.put(49,10,'K');A.put(52,10,'?');A.put(56,10,'m');A.gate(60);
+    A.plat(63,9,4);A.coins(63,8,4);A.put(65,5,'E');A.gap(69,71);A.put(75,10,'m');A.put(79,10,'^');A.gate(84);A.put(88,10,'m');A.put(92,10,'m');A.put(99,10,'F')})},
+ {name:'Problemes amb equacions',topics:['Els cinc passos','Traduir al llenguatge algebraic','Problemes d\'edats, geometria i diners'],gens:GEN5,
+  build:()=>mk(110,A=>{A.put(2,10,'P');A.put(5,10,'?');A.coins(8,9,3);A.put(12,7,'E');A.gap(16,18);A.put(22,10,'?');A.put(26,10,'m');A.gate(30);
+    A.col(34,10,10);A.col(35,9,10);A.col(36,8,10);A.col(37,7,10);A.put(37,3,'E');A.gap(38,41);A.put(45,10,'K');A.put(48,10,'?');A.put(52,10,'m');A.put(56,10,'m');A.gate(60);
+    A.plat(64,8,3);A.plat(69,6,3);A.plat(74,8,3);A.gap(65,76);A.put(70,2,'E');A.put(81,10,'m');A.put(85,10,'^');A.gate(90);A.coins(93,9,4);A.put(97,10,'m');A.put(104,10,'F')})}
+];
+
+/* ===================== progrés ===================== */
+const SKEY='cami-x-v1';
+let PROG={};
+try{PROG=JSON.parse(localStorage.getItem(SKEY)||'{}')||{}}catch(e){PROG={}}
+function saveProg(){try{localStorage.setItem(SKEY,JSON.stringify(PROG))}catch(e){}}
+
+/* ===================== pantalles ===================== */
+function show(id){for(const s of ['screen-map','screen-game','screen-lib'])$(s).hidden=s!==id;
+  if(id!=='screen-game'&&G){G.paused=true}window.scrollTo(0,0)}
+function renderMap(){
+  let tot=0,max=0;
+  $('worlds').innerHTML=WORLDS.map((w,i)=>{const p=PROG[i]||{};const best=p.best||0;const mx=countMax(i);tot+=best;max+=mx;
+    return `<li class="world${p.done?' done':''}"><span class="num">${i+1}</span><h3>${w.name}</h3><ul>${w.topics.map(t=>`<li>${t}</li>`).join('')}</ul>
+    <span class="stars">${p.done?`<b>${'★'.repeat(best)}${'☆'.repeat(mx-best)}</b> · ${best} de ${mx}`:'Encara no superat'}</span>
+    <button class="btn" data-w="${i}">${p.done?'Torna a jugar':'Juga'}</button></li>`}).join('');
+  $('total-stars').textContent=`Estrelles: ${tot} de ${max}`;
+  $('worlds').querySelectorAll('button[data-w]').forEach(b=>b.onclick=()=>startLevel(+b.dataset.w));
+}
+const _maxCache={};
+function countMax(i){if(_maxCache[i]!=null)return _maxCache[i];const g=WORLDS[i].build();const s=new Set();let n=0;
+  g.forEach((r,y)=>r.forEach((c,x)=>{if(c==='E')n++;if(c==='G')s.add(x)}));return _maxCache[i]=n+s.size}
+function renderLib(){
+  $('lib-grid').innerHTML=WORLDS.map((w,i)=>`<div class="lib-card"><span class="tag">Món ${i+1}</span><h2>${w.name}</h2><ul>${THEORY[i].map((t,j)=>`<li><button data-w="${i}" data-t="${j}">${T(t.title)}</button></li>`).join('')}</ul></div>`).join('');
+  $('lib-grid').querySelectorAll('button').forEach(b=>b.onclick=()=>openTheory(+b.dataset.w,+b.dataset.t,null));
+}
+$('nav-map').onclick=()=>{closeModal();renderMap();show('screen-map')};
+$('nav-lib').onclick=()=>{closeModal();renderLib();show('screen-lib')};
+
+/* ===================== modal ===================== */
+let modalOnClose=null;
+function openModal(html,onClose){$('sheet').innerHTML=html;$('modal').hidden=false;modalOnClose=onClose||null;clearKeys();$('sheet').scrollTop=0}
+function closeModal(){if($('modal').hidden)return;$('modal').hidden=true;try{document.activeElement&&document.activeElement.blur()}catch(e){}$('sheet').innerHTML='';const f=modalOnClose;modalOnClose=null;if(f)f()}
+
+/* --- teoria --- */
+function openTheory(wi,ti,onClose){
+  const th=THEORY[wi][ti];
+  const total=THEORY[wi].length;
+  openModal(`<button class="close-x" id="th-x" aria-label="Tanca">✕</button>
+    <span class="tag pista">Pista ${ti+1} de ${total} · Món ${wi+1}</span>
+    <h2>${T(th.title)}</h2><p>${T(th.body)}</p>
+    ${th.widget?'<div class="wg" id="wg"></div>':''}
+    ${th.steps.length?'<h3 style="font-size:24px;margin-top:4px">Exemple pas a pas</h3><ol class="steps" id="th-steps"></ol>':''}
+    <div class="row">${th.steps.length>1?'<button class="btn ghost" id="th-next">Següent pas</button><button class="btn ghost" id="th-all">Mostra-ho tot</button>':''}
+    <button class="btn" id="th-close">${onClose?'Continua el camí':'Tanca'}</button></div>`,onClose);
+  if(th.widget)WIDGETS[th.widget]($('wg'));
+  let shown=0;const ol=$('th-steps');
+  const next=()=>{if(!ol||shown>=th.steps.length)return;const li=document.createElement('li');li.innerHTML=T(th.steps[shown++]);ol.appendChild(li);
+    if(shown>=th.steps.length){$('th-next')&&($('th-next').hidden=true);$('th-all')&&($('th-all').hidden=true)}};
+  next();
+  if($('th-next'))$('th-next').onclick=next;
+  if($('th-all'))$('th-all').onclick=()=>{while(shown<th.steps.length)next()};
+  $('th-close').onclick=closeModal;$('th-x').onclick=closeModal;
+  setTimeout(()=>$('th-close').focus({preventScroll:true}),30);
+}
+
+/* --- exercicis --- */
+function parseAns(s){s=String(s).trim().replace(/\s+/g,'').replace(/[−–]/g,'-').replace(/^x=/i,'').replace(',','.');
+  if(!s)return NaN;if(s.includes('/')){const[a,b]=s.split('/');return Number(a)/Number(b)}return Number(s)}
+function openExercise(trig){
+  const g=G;const w=WORLDS[g.wi];
+  if(!g.bag.length)g.bag=shuffle(w.gens.map((_,i)=>i));
+  const ex=w.gens[g.bag.pop()]();
+  let usedHint=false,answered=false;
+  const isGate=trig.type==='gate';
+  openModal(`<span class="tag ${isGate?'gate':''}">${isGate?'Porta tancada':'Bloc x · exercici extra'} · Món ${g.wi+1}</span>
+    <h2>${ex.prompt}</h2>
+    <div class="statement${ex.text?' text':''}">${T(ex.statement)}</div>
+    ${ex.kind==='num'?`<form class="ans" id="ex-form" autocomplete="off"><label for="ex-in">${T(ex.label||'x =')}</label>
+      <input id="ex-in" inputmode="text" placeholder="${ex.text?'nombre':'p. ex. -3 o 5/2'}" aria-label="Resposta">${ex.unit?`<span class="unit">${ex.unit}</span>`:''}
+      <button class="btn" type="submit">Comprova</button></form>`
+      :`<div class="choices" id="ex-ch">${ex.choices.map((c,i)=>`<button data-i="${i}">${T('$'+c+'$')}</button>`).join('')}</div>`}
+    <div class="row"><button class="btn ghost sm" id="ex-hint">Mostra una pista</button><span style="font-size:13px;color:var(--ink-soft)">${isGate?'Si fas servir la pista, la porta s\'obre però no guanyes l\'estrella.':'Amb la pista no guanyes l\'estrella.'}</span></div>
+    <div class="hintbox" id="ex-hb" hidden></div>
+    <div id="ex-fb"></div>`,null);
+  $('ex-hint').onclick=()=>{usedHint=true;$('ex-hb').hidden=false;$('ex-hb').innerHTML=T(ex.hint);$('ex-hint').disabled=true};
+  const finish=ok=>{
+    answered=true;$('ex-hint').disabled=true;
+    const msg=ok?(usedHint?'Correcte! Ho has resolt amb ajuda.':'Correcte! Guanyes una estrella.')
+      :(isGate?'No és correcte. Perds un cor.':'No és correcte. Aquest bloc ja no dona estrella.');
+    const right=ex.kind==='num'?`La solució és $${fmtNum(ex.answer)}$${ex.unit?' '+ex.unit:''}.`:`La resposta correcta és $${ex.choices[ex.correct]}$.`;
+    $('ex-fb').innerHTML=`<div class="fb ${ok?'ok':'ko'}"><h3>${msg}</h3>${ok?'':`<p>${T(right)}</p>`}
+      <details ${ok?'':'open'}><summary>Resolució pas a pas</summary><ol>${ex.steps.map(s=>`<li>${T(s)}</li>`).join('')}</ol></details>
+      <div class="row"><button class="btn" id="ex-cont">${ok?'Continua':(isGate?'Torna-ho a provar al camí':'Continua')}</button></div></div>`;
+    $('ex-cont').onclick=closeModal;
+    modalOnClose=()=>exResult(trig,ok,usedHint);
+    setTimeout(()=>{$('ex-fb').scrollIntoView({block:'nearest',behavior:'smooth'});$('ex-cont').focus({preventScroll:true})},40);
+  };
+  if(ex.kind==='num'){
+    $('ex-form').onsubmit=e=>{e.preventDefault();if(answered)return;const v=parseAns($('ex-in').value);
+      if(isNaN(v)){$('ex-in').setCustomValidity('Escriu un nombre, per exemple -3, 2,5 o 7/2');$('ex-in').reportValidity();return}
+      $('ex-in').setCustomValidity('');$('ex-in').disabled=true;$('ex-form').querySelector('button').disabled=true;
+      finish(Math.abs(v-ex.answer)<1e-6)};
+    $('ex-in').oninput=()=>$('ex-in').setCustomValidity('');
+    setTimeout(()=>$('ex-in').focus({preventScroll:true}),40);
+  }else{
+    $('ex-ch').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(answered)return;const i=+b.dataset.i;
+      $('ex-ch').querySelectorAll('button').forEach((bb,j)=>{bb.disabled=true;if(j===ex.correct)bb.classList.add('ok');else if(j===i)bb.classList.add('ko')});
+      finish(i===ex.correct)});
+  }
+  modalOnClose=()=>exResult(trig,null,usedHint);
+}
+
+/* ===================== estat del joc ===================== */
+let G=null;
+const keys={left:false,right:false,jump:false,jumpPressed:false};
+function clearKeys(){keys.left=keys.right=keys.jump=keys.jumpPressed=false;document.querySelectorAll('.pad button').forEach(b=>b.classList.remove('on'))}
+
+function startLevel(wi){
+  closeModal();
+  const grid=WORLDS[wi].build();const w=grid[0].length;
+  let px=2,py=10;const enemies=[];const pistes=[];const gateCols=new Set();let blocks=0;
+  grid.forEach((r,y)=>r.forEach((c,x)=>{
+    if(c==='P'){px=x;py=y;r[x]=' '}
+    if(c==='m'){enemies.push({x:x*TS+6,y:(y+1)*TS-26,w:28,h:26,vx:-1.1,vy:0,alive:true,dead:0});r[x]=' '}
+    if(c==='?')pistes.push(x+','+y);
+    if(c==='G')gateCols.add(x);
+    if(c==='E')blocks++;
+  }));
+  pistes.sort((a,b)=>+a.split(',')[0]-+b.split(',')[0]);
+  const pmap={};pistes.forEach((k,i)=>pmap[k]=i%THEORY[wi].length);
+  const sp={x:px*TS+7,y:(py+1)*TS-36};
+  G={wi,grid,w,p:{x:sp.x,y:sp.y,vx:0,vy:0,w:26,h:36,face:1,onGround:false,coyote:0,buffer:0,inv:0,walk:0},
+    enemies,hearts:3,stars:0,coins:0,tried:0,ok:0,cp:{...sp},t:0,paused:false,parts:[],pops:[],bumps:{},
+    pmap,found:new Set(),maxStars:gateCols.size+blocks,cooldown:0,bag:[],done:false};
+  $('hud-world').textContent=`Món ${wi+1} · ${WORLDS[wi].name}`;
+  updHUD();show('screen-game');
+  toast(matchMedia('(pointer:coarse)').matches?'Toca les bombetes per aprendre i obre les portes!':'Fletxes per moure\'t, espai per saltar. Toca les bombetes per aprendre!');
+}
+function heartSVG(on){return `<svg width="20" height="18" viewBox="0 0 20 18" aria-hidden="true"><path d="M10 17 2.2 9.4A4.8 4.8 0 0 1 10 3.2a4.8 4.8 0 0 1 7.8 6.2Z" fill="${on?'var(--error)':'none'}" stroke="var(--ink)" stroke-width="1.8"/></svg>`}
+function updHUD(){if(!G)return;
+  $('hud-hearts').innerHTML=[0,1,2].map(i=>heartSVG(i<G.hearts)).join('');
+  $('hud-hearts').setAttribute('aria-label',`${G.hearts} cors`);
+  $('hud-stars').innerHTML=`<span style="color:var(--marker);-webkit-text-stroke:1px var(--ink);font-size:20px">★</span> ${G.stars}/${G.maxStars}`;
+  $('hud-coins').innerHTML=`<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7.5" fill="var(--marker)" stroke="var(--ink)" stroke-width="1.8"/></svg> ${G.coins}`;
+}
+let toastT=0;
+function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200)}
+
+const SOLID=new Set(['#','B','E','e','G']);
+function tile(c,r){const g=G;if(c<0||c>=g.w)return '#';if(r<0)return g.grid[0][c]==='G'?'G':' ';if(r>=ROWS)return ' ';return g.grid[r][c]}
+const solid=(c,r)=>SOLID.has(tile(c,r));
+
+function moveX(o,isP){
+  o.x+=o.vx;
+  const top=Math.floor(o.y/TS),bot=Math.floor((o.y+o.h-0.01)/TS);
+  if(o.vx>0){const c=Math.floor((o.x+o.w)/TS);for(let r=top;r<=bot;r++)if(solid(c,r)){o.x=c*TS-o.w-0.01;o.vx=isP?0:-Math.abs(o.vx);if(isP)touchTile(c,r);return true}}
+  else if(o.vx<0){const c=Math.floor(o.x/TS);for(let r=top;r<=bot;r++)if(solid(c,r)){o.x=(c+1)*TS+0.01;o.vx=isP?0:Math.abs(o.vx);if(isP)touchTile(c,r);return true}}
+  return false;
+}
+function moveY(o,isP){
+  o.y+=o.vy;o.onGround=false;
+  const l=Math.floor(o.x/TS),rr=Math.floor((o.x+o.w-0.01)/TS);
+  const cc=Math.floor((o.x+o.w/2)/TS);const cols=[cc];for(let c=l;c<=rr;c++)if(c!==cc)cols.push(c);
+  if(o.vy>0){const r=Math.floor((o.y+o.h)/TS);for(const c of cols)if(solid(c,r)){o.y=r*TS-o.h;o.vy=0;o.onGround=true;return}}
+  else if(o.vy<0){const r=Math.floor(o.y/TS);for(const c of cols)if(solid(c,r)){o.y=(r+1)*TS;o.vy=0;if(isP)hitBelow(c,r);return}}
+}
+function touchTile(c,r){if(G.grid[r]&&G.grid[r][c]==='G'||(r<0&&G.grid[0][c]==='G')){if(G.cooldown<=0)trigger({type:'gate',c})}}
+function hitBelow(c,r){const t=tile(c,r);G.bumps[c+','+r]=10;if(t==='E')trigger({type:'block',c,r})}
+function trigger(tr){G.paused=true;clearKeys();openExercise(tr)}
+
+function exResult(tr,ok,usedHint){
+  const g=G;if(!g)return;
+  if(ok===null){ // tancat sense respondre
+    g.cooldown=50;pushBack(tr);g.paused=false;return}
+  g.tried++;
+  if(ok){g.ok++;
+    if(!usedHint)g.stars++;
+    if(tr.type==='gate'){for(let y=0;y<ROWS;y++)if(g.grid[y][tr.c]==='G'){g.grid[y][tr.c]=' ';burst(tr.c*TS+20,y*TS+20,'gate',4)}}
+    else{g.grid[tr.r][tr.c]='e';g.coins+=3;pop(tr.c*TS+20,tr.r*TS-6,'+3');burst(tr.c*TS+20,tr.r*TS,'marker',10)}
+    if(!usedHint)pop(g.p.x+13,g.p.y-10,'+★');
+  }else{
+    if(tr.type==='gate'){g.hearts--;pushBack(tr)}
+    else g.grid[tr.r][tr.c]='e';
+  }
+  g.cooldown=50;updHUD();
+  if(g.hearts<=0){gameOver();return}
+  g.paused=false;
+}
+function pushBack(tr){if(tr.type!=='gate')return;const p=G.p;const gx=tr.c*TS;if(p.x<gx)p.x=Math.min(p.x,gx-p.w-14);else p.x=Math.max(p.x,gx+TS+14);p.vx=0}
+function burst(x,y,col,n){for(let i=0;i<n;i++)G.parts.push({x,y,vx:(Math.random()-.5)*6,vy:-Math.random()*6-1,life:40+Math.random()*20,col,r:3+Math.random()*4})}
+function pop(x,y,txt){G.pops.push({x,y,txt,life:60})}
+
+function hurt(){const g=G,p=g.p;if(p.inv>0)return;g.hearts--;p.inv=90;p.vy=-7;p.vx=-p.face*4;updHUD();if(g.hearts<=0)gameOver()}
+function gameOver(){const g=G;g.paused=true;
+  openModal(`<span class="tag">Món ${g.wi+1}</span><h2>T'has quedat sense cors</h2><p>No passa res: tornes a l'últim punt de control amb els tres cors. Les portes que ja has obert continuen obertes.</p>
+    <div class="row"><button class="btn" id="go-r">Torna al punt de control</button><button class="btn ghost" id="go-m">Mapa dels mons</button></div>`,()=>respawn());
+  $('go-r').onclick=closeModal;$('go-m').onclick=()=>{modalOnClose=null;closeModal();renderMap();show('screen-map')};
+}
+function respawn(){const g=G;g.hearts=3;g.p.x=g.cp.x;g.p.y=g.cp.y;g.p.vx=g.p.vy=0;g.p.inv=60;g.paused=false;updHUD()}
+function fell(){const g=G;g.hearts--;updHUD();if(g.hearts<=0){gameOver();return}g.p.x=g.cp.x;g.p.y=g.cp.y;g.p.vx=g.p.vy=0;g.p.inv=60;toast('Has caigut! Tornes al punt de control.')}
+
+function levelDone(){const g=G;g.paused=true;g.done=true;
+  const prev=PROG[g.wi]||{};PROG[g.wi]={done:true,best:Math.max(prev.best||0,g.stars)};saveProg();
+  const nxt=g.wi+1<WORLDS.length;
+  openModal(`<span class="tag pista">Món ${g.wi+1} superat</span><h2>${WORLDS[g.wi].name}: completat!</h2>
+    <div class="result-stars" aria-label="${g.stars} estrelles de ${g.maxStars}">${'★'.repeat(g.stars)}${'☆'.repeat(g.maxStars-g.stars)}</div>
+    <div class="kv"><span>Estrelles</span><b>${g.stars} de ${g.maxStars}</b><span>Exercicis encertats</span><b>${g.ok} de ${g.tried}</b><span>Monedes</span><b>${g.coins}</b><span>Pistes llegides</span><b>${g.found.size} de ${THEORY[g.wi].length}</b></div>
+    <p>${g.stars===g.maxStars?'Perfecte: tots els exercicis bé i sense pistes.':'Pots tornar a jugar el món per aconseguir totes les estrelles. Els exercicis canvien cada vegada.'}</p>
+    <div class="row">${nxt?'<button class="btn" id="ld-n">Món següent</button>':''}<button class="btn ${nxt?'ghost':''}" id="ld-r">Torna a jugar</button><button class="btn ghost" id="ld-m">Mapa dels mons</button></div>`,null);
+  if(nxt)$('ld-n').onclick=()=>startLevel(g.wi+1);
+  $('ld-r').onclick=()=>startLevel(g.wi);
+  $('ld-m').onclick=()=>{closeModal();renderMap();show('screen-map')};
+}
+function pauseMenu(){if(!G||G.done)return;G.paused=true;const g=G;
+  openModal(`<button class="close-x" id="pz-x" aria-label="Tanca">✕</button><span class="tag">Pausa · Món ${g.wi+1}</span><h2>${WORLDS[g.wi].name}</h2>
+    <p>Pistes d'aquest món (pots rellegir-les quan vulguis):</p>
+    <div class="row" style="margin-bottom:14px">${THEORY[g.wi].map((t,i)=>`<button class="btn ghost sm" data-t="${i}">${T(t.title)}</button>`).join('')}</div>
+    <div class="row"><button class="btn" id="pz-c">Continua</button><button class="btn ghost" id="pz-r">Reinicia el món</button><button class="btn ghost" id="pz-m">Mapa dels mons</button></div>`,()=>{if(G)G.paused=false});
+  $('sheet').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{modalOnClose=null;closeModal();G.paused=true;openTheory(g.wi,+b.dataset.t,()=>{G.paused=false})});
+  $('pz-c').onclick=closeModal;$('pz-x').onclick=closeModal;
+  $('pz-r').onclick=()=>{modalOnClose=null;startLevel(g.wi)};
+  $('pz-m').onclick=()=>{modalOnClose=null;closeModal();renderMap();show('screen-map')};
+}
+$('btn-pause').onclick=pauseMenu;
+
+/* ===================== actualització ===================== */
+function update(){
+  const g=G;if(!g||g.paused||$('screen-game').hidden)return;
+  g.t++;if(g.cooldown>0)g.cooldown--;
+  const p=g.p;
+  if(keys.left&&!keys.right){p.vx=Math.max(p.vx-.8,-4.6);p.face=-1}
+  else if(keys.right&&!keys.left){p.vx=Math.min(p.vx+.8,4.6);p.face=1}
+  else{p.vx*=.75;if(Math.abs(p.vx)<.1)p.vx=0}
+  if(keys.jumpPressed){p.buffer=8;keys.jumpPressed=false}
+  if(p.buffer>0)p.buffer--;
+  if(p.onGround)p.coyote=7;else if(p.coyote>0)p.coyote--;
+  if(p.buffer>0&&p.coyote>0){p.vy=-12.4;p.buffer=0;p.coyote=0;p.onGround=false}
+  if(!keys.jump&&p.vy<-3)p.vy+=.9;
+  p.vy=Math.min(p.vy+.6,14);
+  moveX(p,true);if(g.paused)return;
+  moveY(p,true);if(g.paused)return;
+  if(p.inv>0)p.inv--;
+  p.walk+=Math.abs(p.vx)*.12;
+  // triggers
+  const l=Math.floor((p.x+3)/TS),r=Math.floor((p.x+p.w-3)/TS),t=Math.floor((p.y+3)/TS),b=Math.floor((p.y+p.h-3)/TS);
+  for(let y=t;y<=b;y++)for(let x=l;x<=r;x++){
+    if(y<0||y>=ROWS)continue;const c=g.grid[y][x];
+    if(c==='o'){g.grid[y][x]=' ';g.coins++;burst(x*TS+20,y*TS+20,'marker',5);updHUD()}
+    else if(c==='^'){hurt()}
+    else if(c==='K'){g.grid[y][x]='k';g.cp={x:x*TS+7,y:(y+1)*TS-36};toast('Punt de control desat');burst(x*TS+20,y*TS,'leaf',12)}
+    else if(c==='F'){levelDone();return}
+    else if(c==='?'){const idx=g.pmap[x+','+y];g.grid[y][x]='i';g.found.add(idx);g.paused=true;clearKeys();
+      openTheory(g.wi,idx,()=>{if(G){G.paused=false;G.cooldown=20}});return}
+  }
+  if(p.y>ROWS*TS+60){fell();return}
+  // enemics
+  for(const e of g.enemies){
+    if(!e.alive){if(e.dead>0)e.dead--;continue}
+    if(Math.abs(e.x-p.x)>VW*1.2)continue;
+    e.vy=Math.min(e.vy+.6,12);
+    const dir=Math.sign(e.vx);const ahead=dir>0?Math.floor((e.x+e.w+2)/TS):Math.floor((e.x-2)/TS);
+    const below=Math.floor((e.y+e.h+2)/TS);
+    if(e.onGround&&!solid(ahead,below))e.vx=-e.vx;
+    moveX(e,false);moveY(e,false);
+    if(e.y>ROWS*TS+40)e.alive=false;
+    if(p.x<e.x+e.w&&p.x+p.w>e.x&&p.y<e.y+e.h&&p.y+p.h>e.y){
+      if(p.vy>0&&p.y+p.h-e.y<18){e.alive=false;e.dead=30;p.vy=-8.5;g.coins++;pop(e.x+14,e.y-6,'+1');burst(e.x+14,e.y+13,'error',10);updHUD()}
+      else hurt();
+    }
+  }
+  for(const q of g.parts){q.x+=q.vx;q.y+=q.vy;q.vy+=.3;q.life--}
+  g.parts=g.parts.filter(q=>q.life>0);
+  for(const q of g.pops){q.y-=.7;q.life--}
+  g.pops=g.pops.filter(q=>q.life>0);
+  for(const k in g.bumps){if(--g.bumps[k]<=0)delete g.bumps[k]}
+}
+
+/* ===================== dibuix ===================== */
+const cv=$('cv'),ctx=cv.getContext('2d');
+let DPR=1,COL={};
+function sizeCanvas(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=VW*DPR;cv.height=VH*DPR}
+function readCols(){const cs=getComputedStyle(document.documentElement);
+  for(const k of ['paper','paper-2','grid','grid-strong','ink','ink-soft','margin','marker','on-marker','hero','ground','ground-line','gate','leaf','error'])COL[k]=cs.getPropertyValue('--'+k).trim()||'#000'}
+const SYMS=(()=>{const s=['+','−','×','÷','=','x','y','²','π','√','( )','a+b','3x','½'];const a=[];for(let i=0;i<70;i++)a.push({x:i*95+((i*37)%60),y:40+((i*71)%380),ch:s[i%s.length],sz:18+((i*13)%22)});return a})();
+const BSYM=['+','−','×','÷','='];
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle=COL.paper;ctx.fillRect(0,0,VW,VH);
+  const g=G;
+  const camX=g?Math.max(0,Math.min(g.p.x-VW*.4,g.w*TS-VW)):0;
+  // paper quadriculat amb paral·laxi
+  const off=(camX*.5)%24;
+  ctx.strokeStyle=COL.grid;ctx.lineWidth=1;ctx.beginPath();
+  for(let x=-off;x<VW;x+=24){ctx.moveTo(Math.round(x)+.5,0);ctx.lineTo(Math.round(x)+.5,VH)}
+  for(let y=0;y<VH;y+=24){ctx.moveTo(0,y+.5);ctx.lineTo(VW,y+.5)}
+  ctx.stroke();
+  ctx.fillStyle=COL['grid-strong'];ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const s of SYMS){const x=s.x-camX*.3;if(x<-60||x>VW+60)continue;ctx.font=`${s.sz}px "Gochi Hand", cursive`;ctx.fillText(s.ch,x,s.y)}
+  if(!g)return;
+  ctx.save();ctx.translate(-Math.round(camX),10);
+  // marge vermell de llibreta
+  ctx.strokeStyle=COL.margin;ctx.lineWidth=2;ctx.globalAlpha=.6;ctx.beginPath();ctx.moveTo(56,-10);ctx.lineTo(56,VH);ctx.moveTo(61,-10);ctx.lineTo(61,VH);ctx.stroke();ctx.globalAlpha=1;
+  const c0=Math.max(0,Math.floor(camX/TS)-1),c1=Math.min(g.w-1,Math.ceil((camX+VW)/TS)+1);
+  for(let r=0;r<ROWS;r++)for(let c=c0;c<=c1;c++)drawTile(g.grid[r][c],c,r);
+  for(const e of g.enemies)drawEnemy(e);
+  drawPlayer(g.p);
+  for(const q of g.parts){ctx.globalAlpha=Math.min(1,q.life/30);ctx.fillStyle=COL[q.col]||COL.marker;ctx.beginPath();ctx.arc(q.x,q.y,q.r,0,7);ctx.fill()}
+  ctx.globalAlpha=1;
+  ctx.font='bold 22px "Atkinson Hyperlegible", sans-serif';ctx.lineWidth=4;
+  for(const q of g.pops){ctx.globalAlpha=Math.min(1,q.life/25);ctx.strokeStyle=COL.paper;ctx.strokeText(q.txt,q.x,q.y);ctx.fillStyle=COL.ink;ctx.fillText(q.txt,q.x,q.y)}
+  ctx.globalAlpha=1;ctx.restore();
+}
+function drawTile(ch,c,r){
+  if(ch===' ')return;
+  const g=G,x=c*TS,y0=r*TS;const t=g.t;
+  const bump=g.bumps[c+','+r]?-Math.sin(g.bumps[c+','+r]/10*Math.PI)*8:0;const y=y0+bump;
+  switch(ch){
+    case '#':{
+      ctx.fillStyle=COL.ground;ctx.fillRect(x,y,TS,TS);
+      ctx.strokeStyle=COL['ground-line'];ctx.lineWidth=1.5;ctx.beginPath();
+      for(let i=-TS;i<TS;i+=12){ctx.moveTo(x+Math.max(0,i),y+Math.max(0,-i));ctx.lineTo(x+Math.min(TS,i+TS),y+Math.min(TS,TS-i))}
+      ctx.stroke();
+      ctx.strokeStyle=COL.ink;ctx.lineWidth=3;ctx.beginPath();
+      if(tile(c,r-1)!=='#'){ctx.moveTo(x,y+1.5);ctx.lineTo(x+TS,y+1.5)}
+      if(tile(c-1,r)!=='#'&&c>0){ctx.moveTo(x+1.5,y);ctx.lineTo(x+1.5,y+TS)}
+      if(tile(c+1,r)!=='#'&&c<g.w-1){ctx.moveTo(x+TS-1.5,y);ctx.lineTo(x+TS-1.5,y+TS)}
+      ctx.stroke();break}
+    case 'B':{
+      ctx.fillStyle=COL['paper-2'];rr(x+2,y+2,TS-4,TS-4,6);ctx.fill();ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;ctx.stroke();
+      ctx.fillStyle=COL['ink-soft'];ctx.font='20px "Gochi Hand", cursive';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(BSYM[(c*7+r*3)%5],x+20,y+21);break}
+    case 'E':{
+      ctx.fillStyle=COL.marker;rr(x+1,y+1,TS-2,TS-2,7);ctx.fill();ctx.strokeStyle=COL.ink;ctx.lineWidth=3;ctx.stroke();
+      ctx.fillStyle=COL['on-marker'];ctx.font='italic bold 28px "Cambria Math","Times New Roman",serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('x',x+20,y+19+Math.sin(t/12)*1.5);break}
+    case 'e':{
+      ctx.fillStyle=COL['grid-strong'];rr(x+1,y+1,TS-2,TS-2,7);ctx.fill();ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;ctx.stroke();
+      ctx.strokeStyle=COL.ink;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x+12,y+21);ctx.lineTo(x+18,y+27);ctx.lineTo(x+29,y+13);ctx.stroke();break}
+    case 'G':{
+      ctx.fillStyle=COL.gate;ctx.fillRect(x+3,y,TS-6,TS);ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.moveTo(x+3,y);ctx.lineTo(x+3,y+TS);ctx.moveTo(x+TS-3,y);ctx.lineTo(x+TS-3,y+TS);ctx.stroke();
+      ctx.strokeStyle=COL.paper;ctx.globalAlpha=.55;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x+12,y+16);ctx.lineTo(x+28,y+16);ctx.moveTo(x+12,y+24);ctx.lineTo(x+28,y+24);ctx.stroke();ctx.globalAlpha=1;
+      if(r===9||(r===10&&tile(c,9)!=='G')){ // cadenat
+        ctx.fillStyle=COL.marker;ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;rr(x+8,y+12,24,20,4);ctx.fill();ctx.stroke();
+        ctx.beginPath();ctx.arc(x+20,y+12,7,Math.PI,0);ctx.stroke();
+        ctx.fillStyle=COL['on-marker'];ctx.font='bold 15px "Atkinson Hyperlegible",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('?',x+20,y+23)}
+      break}
+    case '?':{
+      const by=y+Math.sin(t/14+c)*4;
+      const grd=ctx.createRadialGradient(x+20,by+16,2,x+20,by+16,26);grd.addColorStop(0,COL.marker);grd.addColorStop(1,'rgba(255,203,61,0)');
+      ctx.globalAlpha=.55;ctx.fillStyle=grd;ctx.beginPath();ctx.arc(x+20,by+16,26,0,7);ctx.fill();ctx.globalAlpha=1;
+      ctx.fillStyle=COL.marker;ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x+20,by+15,11,0,7);ctx.fill();ctx.stroke();
+      ctx.fillStyle=COL['paper-2'];rr(x+14,by+25,12,9,2);ctx.fill();ctx.stroke();
+      ctx.fillStyle=COL['on-marker'];ctx.font='bold 14px "Atkinson Hyperlegible",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('i',x+20,by+15);break}
+    case 'i':{
+      ctx.globalAlpha=.35;ctx.strokeStyle=COL.ink;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x+20,y+15,11,0,7);ctx.stroke();rr(x+14,y+25,12,9,2);ctx.stroke();ctx.globalAlpha=1;break}
+    case 'o':{
+      const w=Math.abs(Math.cos(t/18+c))*8+2;
+      ctx.fillStyle=COL.marker;ctx.strokeStyle=COL.ink;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(x+20,y+20,w,10,0,0,7);ctx.fill();ctx.stroke();break}
+    case '^':{
+      ctx.fillStyle=COL.ink;ctx.beginPath();for(let i=0;i<3;i++){ctx.moveTo(x+i*13+1,y+TS);ctx.lineTo(x+i*13+7.5,y+TS-18);ctx.lineTo(x+i*13+14,y+TS)}ctx.fill();break}
+    case 'K':case 'k':{
+      ctx.strokeStyle=COL.ink;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x+12,y+TS);ctx.lineTo(x+12,y-14);ctx.stroke();
+      ctx.fillStyle=ch==='k'?COL.leaf:COL['grid-strong'];ctx.beginPath();ctx.moveTo(x+13,y-14);ctx.lineTo(x+34,y-6);ctx.lineTo(x+13,y+2);ctx.closePath();ctx.fill();ctx.lineWidth=2;ctx.stroke();break}
+    case 'F':{
+      ctx.strokeStyle=COL.ink;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x+10,y+TS);ctx.lineTo(x+10,y-80);ctx.stroke();
+      const wv=Math.sin(t/10)*3;
+      ctx.fillStyle=COL.leaf;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x+12,y-80);ctx.quadraticCurveTo(x+30,y-84+wv,x+52,y-74);ctx.lineTo(x+52,y-44);ctx.quadraticCurveTo(x+30,y-52+wv,x+12,y-46);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.strokeStyle=COL['paper-2'];ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x+22,y-63);ctx.lineTo(x+29,y-56);ctx.lineTo(x+42,y-71);ctx.stroke();break}
+  }
+}
+function drawEnemy(e){
+  if(!e.alive&&e.dead<=0)return;
+  const x=e.x,y=e.y;
+  if(!e.alive){ctx.globalAlpha=e.dead/30;ctx.fillStyle=COL.error;ctx.beginPath();ctx.ellipse(x+14,y+22,16,5,0,0,7);ctx.fill();ctx.globalAlpha=1;return}
+  const sq=Math.sin(G.t/6)*1.5;
+  ctx.fillStyle=COL.error;ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.ellipse(x+14,y+14-sq/2,15,13+sq/2,0,0,7);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x+9,y+11,4,0,7);ctx.arc(x+19,y+11,4,0,7);ctx.fill();
+  ctx.fillStyle='#1B2845';const d=Math.sign(e.vx)*1.5;ctx.beginPath();ctx.arc(x+9+d,y+12,2,0,7);ctx.arc(x+19+d,y+12,2,0,7);ctx.fill();
+  ctx.strokeStyle='#1B2845';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+5,y+5);ctx.lineTo(x+12,y+8);ctx.moveTo(x+23,y+5);ctx.lineTo(x+16,y+8);ctx.stroke();
+  ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x+9,y+20);ctx.lineTo(x+19,y+20);ctx.stroke();
+}
+function drawPlayer(p){
+  if(p.inv>0&&Math.floor(p.inv/5)%2===0)return;
+  const x=p.x,y=p.y,f=p.face;
+  const step=p.onGround&&Math.abs(p.vx)>.3?Math.sin(p.walk)*5:0;
+  ctx.strokeStyle=COL.ink;ctx.lineWidth=3;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x+9,y+28);ctx.lineTo(x+9+step,y+36);ctx.moveTo(x+17,y+28);ctx.lineTo(x+17-step,y+36);ctx.stroke();
+  // bufanda
+  const fl=Math.sin(G.t/5)*3;
+  ctx.fillStyle=COL.margin;ctx.beginPath();ctx.moveTo(x+13-f*8,y+14);ctx.lineTo(x+13-f*22,y+12+fl);ctx.lineTo(x+13-f*20,y+20+fl);ctx.closePath();ctx.fill();
+  ctx.fillStyle=COL.hero;rr(x,y,p.w,30,9);ctx.fill();ctx.lineWidth=2.5;ctx.stroke();
+  ctx.fillStyle=COL.margin;ctx.fillRect(x+1.5,y+13,p.w-3,4);
+  // ulls
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x+13+f*4,y+8,4.2,0,7);ctx.arc(x+13+f*-3,y+8,3.6,0,7);ctx.fill();
+  ctx.fillStyle='#1B2845';ctx.beginPath();ctx.arc(x+14+f*5,y+8.5,2,0,7);ctx.arc(x+14+f*-2,y+8.5,1.8,0,7);ctx.fill();
+  // x a la panxa
+  ctx.fillStyle='#fff';ctx.font='italic bold 15px "Cambria Math","Times New Roman",serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('x',x+13,y+23);
+  ctx.lineCap='butt';
+}
+
+/* ===================== bucle ===================== */
+let last=performance.now(),acc=0,colTick=0;
+function loop(now){
+  acc+=Math.min(100,now-last);last=now;
+  while(acc>=1000/60){update();acc-=1000/60}
+  if(--colTick<=0){readCols();colTick=60}
+  if(!$('screen-game').hidden)draw();
+  requestAnimationFrame(loop);
+}
+
+/* ===================== entrada ===================== */
+const KMAP={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'jump',KeyW:'jump',Space:'jump'};
+addEventListener('keydown',e=>{
+  if(!$('modal').hidden){if(e.key==='Escape'){const cx=$('th-x')||$('pz-x');if(cx)closeModal()}return}
+  if($('screen-game').hidden||!G)return;
+  if(e.key==='Escape'||e.key==='p'||e.key==='P'){pauseMenu();return}
+  const k=KMAP[e.code];if(!k)return;e.preventDefault();
+  if(k==='jump'&&!keys.jump)keys.jumpPressed=true;keys[k]=true;
+});
+addEventListener('keyup',e=>{const k=KMAP[e.code];if(k)keys[k]=false});
+addEventListener('blur',clearKeys);
+document.querySelectorAll('.pad button').forEach(b=>{const k=b.dataset.k;
+  const on=e=>{e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch(_){};if(k==='jump'&&!keys.jump)keys.jumpPressed=true;keys[k]=true;b.classList.add('on')};
+  const off=e=>{keys[k]=false;b.classList.remove('on')};
+  b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off);
+  b.addEventListener('contextmenu',e=>e.preventDefault());
+});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)clearKeys()});
+
+/* ===================== ginys de teoria ===================== */
+const WIDGETS={
+  valor(el){
+    el.innerHTML=T(`<div class="wg-row"><label for="wv-x">Valor de $x$</label><input type="range" id="wv-x" min="-5" max="5" step="1" value="-2"><output id="wv-o"></output></div><div class="calc" id="wv-c"></div>`);
+    const terms=[{c:2,v:'x',p:2},{c:-3,v:'x',p:1},{c:1,v:null}];
+    const up=()=>{const x=+$('wv-x').value;$('wv-o').textContent=String(x).replace('-','−');
+      const{lines}=evalLines(terms,{x});$('wv-c').innerHTML=lines.map(l=>`<div class="${l.res?'res':''}"><small>${l.k}</small>${T('$'+l.s+'$')}</div>`).join('')};
+    $('wv-x').oninput=up;up();
+  },
+  signs(el){
+    el.innerHTML=T(`<div class="wg-row"><label for="ws-x">Valor de $x$</label><input type="range" id="ws-x" min="-5" max="5" step="1" value="-3"><output id="ws-o"></output></div><div class="calc" id="ws-c"></div>`);
+    const up=()=>{const x=+$('ws-x').value;$('ws-o').textContent=String(x).replace('-','−');
+      $('ws-c').innerHTML=[
+        ['$x^2$',`$${par(x)}^2 = ${x*x}$`],['$-x^2$',`$-${par(x)}^2 = ${-x*x}$`],['$(-x)^2$',`$(${-x})^2 = ${x*x}$`],['$2x^2$',`$2*${par(x)}^2 = 2*${x*x} = ${2*x*x}$`],['$(2x)^2$',`$(2*${par(x)})^2 = (${2*x})^2 = ${4*x*x}$`]
+      ].map(([a,b])=>`<div><small>${T(a)}</small>${T(b)}</div>`).join('')};
+    $('ws-x').oninput=up;up();
+  },
+  rect(el){
+    el.innerHTML=T(`<div class="wg-row"><label for="wr-b">Base $b$</label><input type="range" id="wr-b" min="1" max="10" value="5"><output id="wr-bo"></output></div>
+      <div class="wg-row"><label for="wr-a">Altura $a$</label><input type="range" id="wr-a" min="1" max="6" value="3"><output id="wr-ao"></output></div>
+      <svg id="wr-s" viewBox="0 0 340 170" role="img" aria-label="Rectangle"></svg><div class="calc" id="wr-c"></div>`);
+    const up=()=>{const b=+$('wr-b').value,a=+$('wr-a').value;$('wr-bo').textContent=b;$('wr-ao').textContent=a;
+      const u=26,W=b*u,H=a*u,ox=(340-W)/2,oy=10;
+      let cells='';for(let i=1;i<b;i++)cells+=`<line x1="${ox+i*u}" y1="${oy}" x2="${ox+i*u}" y2="${oy+H}" class="ink" stroke-width="1" opacity=".35"/>`;
+      for(let j=1;j<a;j++)cells+=`<line x1="${ox}" y1="${oy+j*u}" x2="${ox+W}" y2="${oy+j*u}" class="ink" stroke-width="1" opacity=".35"/>`;
+      $('wr-s').innerHTML=`<rect x="${ox}" y="${oy}" width="${W}" height="${H}" class="r2"/>${cells}<text x="170" y="${oy+H+22}" text-anchor="middle" class="tm">b = ${b}</text><text x="${ox-8}" y="${oy+H/2+5}" text-anchor="end" class="tm">a = ${a}</text>`;
+      $('wr-c').innerHTML=`<div><small>Perímetre</small>${T(`$P = 2b + 2a = 2*${b} + 2*${a} = ${2*b+2*a}$`)} cm</div><div><small>Àrea</small>${T(`$A = b*a = ${b}*${a} = ${a*b}$`)} cm²</div>`};
+    $('wr-b').oninput=up;$('wr-a').oninput=up;up();
+  },
+  mono(el){
+    el.innerHTML=`<div class="mono m"><span data-p="c">−5</span><span data-p="l"><i>x</i><sup data-p="e">3</sup><i>y</i><sup data-p="e">2</sup></span></div>
+      <div class="tabs" style="justify-content:center"><button data-h="c">Coeficient</button><button data-h="l">Part literal</button><button data-h="e">Grau</button></div><p class="cap" id="wm-cap" style="text-align:center">Toca un botó per assenyalar cada part del monomi.</p>`;
+    const caps={c:'El coeficient és el nombre: −5.',l:'La part literal són les lletres amb els seus exponents: x³y².',e:'El grau és la suma dels exponents: 3 + 2 = 5.'};
+    el.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{const h=b.dataset.h;el.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+      el.querySelectorAll('.mono [data-p]').forEach(s=>s.classList.toggle('hl',s.dataset.p===h));$('wm-cap').textContent=caps[h]});
+  },
+  chips(el){
+    const terms=[{c:3,d:1},{c:2,d:0},{c:5,d:1},{c:-7,d:0},{c:2,d:2},{c:-4,d:1},{c:-1,d:2}];
+    const chip=(t,i)=>`<span class="chip-t k${t.d}">${T('$'+(i===0?'':(t.c<0?'- ':'+ '))+(i===0&&t.c<0?'-':'')+coefBody(t.c,t.d===0?'':(t.d===1?'x':'x^2'))+'$')}</span>`;
+    let grouped=false;
+    const up=()=>{
+      if(!grouped){$('wc-a').innerHTML=terms.map(chip).join('');$('wc-r').innerHTML='';$('wc-b').textContent='Agrupa els semblants';return}
+      const names={2:'Termes en $x^2$',1:'Termes en $x$',0:'Nombres'};
+      $('wc-a').innerHTML=[2,1,0].map(d=>{const g=terms.filter(t=>t.d===d);const s=g.reduce((a,t)=>a+t.c,0);
+        return `<div class="group-row"><span style="min-width:8.5em;font-size:14px;color:var(--ink-soft)">${T(names[d])}</span>${g.map((t,i)=>chip(t,i)).join('')}<span class="arrow">→</span><span class="chip-t k${d}">${T('$'+mono(s,d)+'$')}</span></div>`}).join('');
+      const co=[0,1,2].map(d=>terms.filter(t=>t.d===d).reduce((a,t)=>a+t.c,0));
+      $('wc-r').innerHTML=`<b>Resultat:</b> ${T('$'+poly(co)+'$')}`;$('wc-b').textContent='Torna a barrejar'};
+    el.innerHTML=`<div class="chips" id="wc-a"></div><p id="wc-r" style="font-size:20px;margin:8px 0 0"></p><div class="wg-btns"><button class="btn sm" id="wc-b"></button></div>`;
+    $('wc-b').onclick=()=>{grouped=!grouped;up()};up();
+  },
+  area(el){
+    el.innerHTML=`<div class="tabs"><button class="on" data-t="0">${T('$2x(3x + 5)$')}</button><button data-t="1">${T('$(x + 2)(x + 3)$')}</button></div><svg id="wa-s" viewBox="0 0 360 200" role="img" aria-label="Model d'àrea"></svg><p class="cap" id="wa-c"></p>`;
+    const draw=i=>{
+      if(i===0){$('wa-s').innerHTML=`<rect x="60" y="40" width="170" height="100" class="r1"/><rect x="230" y="40" width="90" height="100" class="r2"/>
+        <text x="145" y="30" text-anchor="middle" class="tm">3x</text><text x="275" y="30" text-anchor="middle" class="tm">5</text><text x="50" y="95" text-anchor="end" class="tm">2x</text>
+        <text x="145" y="96" text-anchor="middle" class="tm" style="font-size:22px">6x²</text><text x="275" y="96" text-anchor="middle" class="tm" style="font-size:22px">10x</text>`;
+        $('wa-c').innerHTML=T('Àrea total = suma de les dues parts: $2x(3x + 5) = 6x^2 + 10x$')}
+      else{$('wa-s').innerHTML=`<rect x="70" y="30" width="130" height="100" class="r1"/><rect x="200" y="30" width="80" height="100" class="r2"/><rect x="70" y="130" width="130" height="55" class="r2"/><rect x="200" y="130" width="80" height="55" class="r3"/>
+        <text x="135" y="22" text-anchor="middle" class="tm">x</text><text x="240" y="22" text-anchor="middle" class="tm">3</text><text x="60" y="85" text-anchor="end" class="tm">x</text><text x="60" y="163" text-anchor="end" class="tm">2</text>
+        <text x="135" y="86" text-anchor="middle" class="tm" style="font-size:22px">x²</text><text x="240" y="86" text-anchor="middle" class="tm" style="font-size:20px">3x</text><text x="135" y="163" text-anchor="middle" class="tm" style="font-size:20px">2x</text><text x="240" y="163" text-anchor="middle" class="tm" style="font-size:20px">6</text>`;
+        $('wa-c').innerHTML=T('Quatre peces: $x^2 + 3x + 2x + 6 = x^2 + 5x + 6$')}
+    };
+    el.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{el.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));draw(+b.dataset.t)});draw(0);
+  },
+  square(el){
+    el.innerHTML=T(`<div class="wg-row"><label for="wq-a">$a$</label><input type="range" id="wq-a" min="1" max="9" value="3"><output id="wq-ao"></output></div>
+      <div class="wg-row"><label for="wq-b">$b$</label><input type="range" id="wq-b" min="1" max="9" value="2"><output id="wq-bo"></output></div>
+      <svg id="wq-s" viewBox="0 0 220 220" role="img" aria-label="Quadrat de costat a més b" style="max-width:240px"></svg><div class="calc" id="wq-c"></div>`);
+    const up=()=>{const a=+$('wq-a').value,b=+$('wq-b').value;$('wq-ao').textContent=a;$('wq-bo').textContent=b;
+      const u=190/(a+b),A=a*u,B=b*u,o=15;
+      $('wq-s').innerHTML=`<rect x="${o}" y="${o}" width="${A}" height="${A}" class="r1"/><rect x="${o+A}" y="${o}" width="${B}" height="${A}" class="r2"/><rect x="${o}" y="${o+A}" width="${A}" height="${B}" class="r2"/><rect x="${o+A}" y="${o+A}" width="${B}" height="${B}" class="r3"/>
+        ${A>34?`<text x="${o+A/2}" y="${o+A/2+6}" text-anchor="middle" class="tm">a²</text>`:''}${B>30&&A>30?`<text x="${o+A+B/2}" y="${o+A/2+6}" text-anchor="middle" class="tm">ab</text><text x="${o+A/2}" y="${o+A+B/2+6}" text-anchor="middle" class="tm">ab</text>`:''}${B>30?`<text x="${o+A+B/2}" y="${o+A+B/2+6}" text-anchor="middle" class="tm">b²</text>`:''}`;
+      $('wq-c').innerHTML=`<div><small>${T('$(a + b)^2$')}</small>${T(`$(${a} + ${b})^2 = ${(a+b)**2}$`)}</div>
+        <div class="res"><small>${T('$a^2 + 2ab + b^2$')}</small>${T(`$${a*a} + ${2*a*b} + ${b*b} = ${(a+b)**2}$`)} ✓</div>
+        <div><small>${T('$a^2 + b^2$')}</small>${T(`$${a*a} + ${b*b} = ${a*a+b*b}$`)} ✗ falten els dos rectangles ${T('$ab$')}</div>`};
+    $('wq-a').oninput=up;$('wq-b').oninput=up;up();
+  },
+  balance(el){
+    const S=[
+      {L:[2,3],R:[0,11],tilt:0,cap:'$2x + 3 = 11$. Cada bossa groga conté $x$ unitats. La balança està en equilibri.'},
+      {L:[2,0],R:[0,11],tilt:1,cap:'Si traiem les 3 unitats només del plat esquerre, la balança es desequilibra.'},
+      {L:[2,0],R:[0,8],tilt:0,cap:'Traiem 3 unitats dels dos plats i torna l\'equilibri: $2x = 8$.'},
+      {L:[1,0],R:[0,4],tilt:0,cap:'Repartim cada plat en dues parts iguals i ens en quedem una: $x = 4$.'}];
+    el.innerHTML=`<svg id="wb-s" viewBox="0 0 340 210" role="img" aria-label="Balança"></svg><p class="cap" id="wb-c"></p><div class="wg-btns"><button class="btn sm ghost" id="wb-p">Enrere</button><button class="btn sm" id="wb-n">Pas següent</button></div>`;
+    let i=0,ang=0,raf=0;
+    const items=(n,u,cx,cy)=>{let s='';const all=[];for(let k=0;k<n;k++)all.push('x');for(let k=0;k<u;k++)all.push('u');
+      const per=6;all.forEach((t,k)=>{const row=Math.floor(k/per),col=k%per,cnt=Math.min(per,all.length-row*per);const x=cx-cnt*8+col*16,y=cy-12-row*16;
+        s+=t==='x'?`<rect x="${x-1}" y="${y-6}" width="16" height="18" rx="5" class="bag"/><text x="${x+7}" y="${y+8}" text-anchor="middle" class="bagt">x</text>`:`<rect x="${x+1}" y="${y}" width="12" height="12" rx="2" class="unit"/>`});return s};
+    const render=()=>{const st=S[i];const a=ang*Math.PI/180;const cx=170,cy=60,Lb=120;
+      const lx=cx-Lb*Math.cos(a),ly=cy-Lb*Math.sin(a),rx=cx+Lb*Math.cos(a),ry=cy+Lb*Math.sin(a);
+      const pan=(x,y,n,u)=>`<line x1="${x}" y1="${y}" x2="${x-38}" y2="${y+70}" class="ink" stroke-width="1.5"/><line x1="${x}" y1="${y}" x2="${x+38}" y2="${y+70}" class="ink" stroke-width="1.5"/><path d="M${x-48} ${y+70} Q${x} ${y+92} ${x+48} ${y+70} Z" class="r2"/>${items(n,u,x,y+72)}`;
+      $('wb-s').innerHTML=`<path d="M150 200 L190 200 L174 64 L166 64 Z" class="inkf" opacity=".85"/><line x1="${lx}" y1="${ly}" x2="${rx}" y2="${ry}" class="ink" stroke-width="5" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="6" class="inkf"/>
+        ${pan(lx,ly,st.L[0],st.L[1])}${pan(rx,ry,st.R[0],st.R[1])}`;
+    };
+    const go=()=>{const st=S[i];$('wb-c').innerHTML=T(st.cap);$('wb-p').disabled=i===0;$('wb-n').disabled=i===S.length-1;
+      const target=st.tilt?9:0;cancelAnimationFrame(raf);const step=()=>{ang+=(target-ang)*.12;render();if(Math.abs(target-ang)>.05&&el.isConnected)raf=requestAnimationFrame(step);else{ang=target;render()}};step()};
+    $('wb-n').onclick=()=>{if(i<S.length-1){i++;go()}};$('wb-p').onclick=()=>{if(i>0){i--;go()}};go();
+  },
+  lcm(el){
+    const opts=[2,3,4,5,6,8,9,10,12];let sel=new Set([2,3]);
+    el.innerHTML=`<p style="margin:0 0 8px">Tria els denominadors de l'equació:</p><div class="dchips" id="wl-d"></div><div class="mults" id="wl-m"></div><p id="wl-r" style="font-size:20px;margin:10px 0 0"></p>`;
+    const up=()=>{$('wl-d').innerHTML=opts.map(o=>`<button class="${sel.has(o)?'on':''}" data-o="${o}" aria-pressed="${sel.has(o)}">${o}</button>`).join('');
+      $('wl-d').querySelectorAll('button').forEach(b=>b.onclick=()=>{const o=+b.dataset.o;if(sel.has(o)){if(sel.size>1)sel.delete(o)}else sel.add(o);up()});
+      const arr=[...sel].sort((a,b)=>a-b);const M=arr.reduce(lcm,1);
+      $('wl-m').innerHTML=arr.map(d=>{const ms=[];for(let k=1;k*d<=M&&ms.length<12;k++)ms.push(k*d);return `<div>Múltiples de <b>${d}</b>: ${ms.map(v=>v===M?`<b class="hit">${v}</b>`:v).join(', ')}${ms[ms.length-1]<M?', …':''}</div>`}).join('');
+      $('wl-r').innerHTML=`m.c.m.(${arr.join(', ')}) = <b>${M}</b>. Multipliquem tots els termes per ${M}.`};
+    up();
+  },
+  cards(el){
+    const P=[["El doble d'un nombre","2x"],["Un nombre augmentat en 5","x + 5"],["La meitat d'un nombre","{x|2}"],["El triple d'un nombre menys 4","3x - 4"],
+      ["Dos nombres consecutius","x, x + 1"],["L'edat d'aquí a 6 anys","x + 6"],["L'edat fa 3 anys","x - 3"],["El quadrat d'un nombre","x^2"],["La tercera part d'un nombre més 2","{x|3} + 2"]];
+    el.innerHTML=`<div class="cards">${P.map((p,i)=>`<button class="card" data-i="${i}" aria-pressed="false">${p[0]}</button>`).join('')}</div>`;
+    el.querySelectorAll('.card').forEach(b=>b.onclick=()=>{const i=+b.dataset.i,f=b.classList.toggle('flip');b.setAttribute('aria-pressed',f);b.innerHTML=f?T('$'+P[i][1]+'$'):P[i][0]});
+  }
+};
+
+/* ===================== inici ===================== */
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal'&&($('th-x')||$('pz-x')))closeModal()});
+sizeCanvas();addEventListener('resize',sizeCanvas);readCols();
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>colTick=0);
+renderMap();
+requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>
